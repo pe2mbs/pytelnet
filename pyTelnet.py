@@ -15,7 +15,16 @@ log = logging.getLogger()
 def usage():
     print( """pyTelnet.py, version %s, 2015 Copyright by Marc Bertens.
 
-Usage: pyTelnet [-d] ... [host [port]]
+Usage: pyTelnet [ options ] ... [host [port]]
+
+    Options:
+
+    -d/--debug <level>      Set debug level for the application, DEBUG, INFO, WARN, ERROR, CRITICAL.
+    -v/--verbose            Set verbose mode.
+    -u/--user <username>    Set user name.
+    -p/--pass <passwd>      Set password for user.
+    -t/--timeout <real>     Set timeout value, default is 0.5 second
+    -h/--help               Shows this help page.
 
 Default host is localhost; default port is 23.
 
@@ -98,7 +107,7 @@ def TelnetConsole():
             # end if
         # end if
     # end if
-    log.setLevel( logging.DEBUG )
+    log.setLevel( logging.CRITICAL )
     if verboselevel> 0:
         ch = logging.StreamHandler()
         ch.setLevel( verboselevel )
@@ -106,15 +115,15 @@ def TelnetConsole():
         ch.setFormatter( formatter )
         log.addHandler( ch )
     # end if
+    ch = logging.FileHandler( './telnet.log' )
+    ch.setLevel( debuglevel )
+    formatter = logging.Formatter('%(asctime)s - %(module)s:%(lineno)d - %(levelname)s - %(message)s')
+    ch.setFormatter( formatter )
+    log.addHandler( ch )
     if debuglevel > 0:
-        ch = logging.FileHandler( './telnet.log' )
-        ch.setLevel( debuglevel )
-        formatter = logging.Formatter('%(asctime)s - %(module)s:%(lineno)d - %(levelname)s - %(message)s')
-        ch.setFormatter( formatter )
-        log.addHandler( ch )
+        log.setLevel( debuglevel )
     # end if
     tn = telnetlib.Telnet()
-    #tn = SslTelnet()
     tn.SetDebugLevel( debuglevel )
     tn.SetVerboseLevel( debuglevel )
     if username is not None:

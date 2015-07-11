@@ -261,6 +261,10 @@ class TelnetOption:
     def Wont( self, telnet, sock ):
         return
     # end def
+
+    def Execute( self, telnet, sock, sbdataq ):
+        return
+    # end def
 # end class
 
 class TelnetOptionLocalEcho( TelnetOption ):
@@ -271,6 +275,53 @@ class TelnetOptionLocalEcho( TelnetOption ):
     # end def
 # end class
 
+class TelnetOptionAuthentication( TelnetOption ):
+    def Do( self, telnet, sock ):
+        log.debug( "IAC WILL AUTHENTICATION" )
+        sock.sendall( IAC + WILL + AUTHENTICATION )
+        return
+    # end def
+
+    def Execute( self, telnet, sock, sbdataq ):
+        log.info( " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in sbdataq ] ) )
+        if sbdataq[ 0 ] == AUTHENTICATION:
+            if sbdataq[ 1 ] == AUTHENTICATION_SEND and sbdataq[ 2 ] == AUTH_TYPE_SSL:
+                log.info( 'AUTHENTICATION.SEND = %d = %s' % ( ord( sbdataq[ 1 ] ), "SSL*" ) )
+                 # <= "ff:fa:25:00:07:00:01:ff:f0"
+                log.info( 'AUTHENTICATION.REPLY = %d = %s' % ( 0, "SSL*" ) )
+                sock.sendall( IAC + SB + AUTHENTICATION + AUTHENTICATION_IS + AUTH_TYPE_SSL + chr(0) + chr(1) + IAC + SE )
+            elif sbdataq[ 1 ] == AUTHENTICATION_REPLY and sbdataq[ 2 ] == AUTH_TYPE_SSL:
+                # => "ff:fa:25:02:07:00:02:ff:f0""
+                #     IAC SB
+                #       AUTHENTICATION REPLY SSL 00 02
+                #     IAC SE
+                log.info( 'AUTHENTICATION.SEND = %d = %s' % ( ord( sbdataq[ 1 ] ), "SSL*" ) )
+                """
+                    Now this is little tricky,
+                """
+                sslsock = ssl.wrap_socket( sock,
+                            ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
+                            # ssl_version=ssl.PROTOCOL_TLSv1,
+                            ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
+                            cert_reqs=ssl.CERT_NONE,
+                            ca_certs='/etc/ssl/certs/ca-certificates.crt'
+                            )
+                # Start the negotiate
+                sslsock.getpeercert()
+                # Swap the sockets
+                telnet.sock = sslsock
+                telnet.sockssl = sock
+            else:
+                log.info( 'AUTHENTICATION.SEND = %d unsupported' % ( ord( sbdataq[ 1 ] ) ) )
+            # end if
+        else:
+            # IAC SB <option-bytes> IAC SE
+            log.info( 'IAC SB %s IAC SE is unsupported' % ( " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in sbdataq ] ) ) )
+            pass
+        # end if
+        return
+    # end def
+# end class
 
 class Telnet:
 
@@ -355,6 +406,7 @@ class Telnet:
         self.terminal               = None
         self.options                = [ None ] * 256
         self.options[ ord( ECHO ) ] = TelnetOptionLocalEcho()
+        self.options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
         if host is not None:
             self.open( host, port, timeout )
         # end if
@@ -726,6 +778,7 @@ class Telnet:
                     if c == IAC:
                         buf[ self.sb ] = buf[ self.sb ] + c
                     else:
+                        optionObj   = None
                         if c == SB: # SB ... SE start.
                             self.sb = 1
                             self.sbdataq = ''
@@ -733,8 +786,11 @@ class Telnet:
                             self.sb = 0
                             self.sbdataq = self.sbdataq + buf[ 1 ]
                             buf[1] = ''
+                            optionObj   = self.options[ ord( self.sbdataq[ 0 ] ) ]
                         # end if
-                        if self.option_callback:
+                        if optionObj is not None:
+                            optionObj.Execute( self, self.sock, self.sbdataq )
+                        elif self.option_callback:
                             # Callback is supposed to look into
                             # the sbdataq
                             self.option_callback( self.sock, c, NOOPT )
@@ -819,7 +875,7 @@ class Telnet:
                                     ca_certs='/etc/ssl/certs/ca-certificates.crt'
                                     )
                         # Start the negotiate
-                        self.__sslsock.getpeercert()
+                        self.sslsock.getpeercert()
                         # Swap the sockets
                         tmp = self.sock
                         self.sock = self.sslsock
