@@ -1,12 +1,33 @@
 #!/usr/bin/python
+"""
+    Telnet program for Python
 
+    Copyright (C) 2015  Marc Bertens-Nguyen
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    This library is based on idea of Abhilash Meesala <abhilash929@gmail.com>
+    his basic implementation is heavily extended to make a complete library.
+
+"""
 # imported modules
 import sys
 import socket
 import logging
 import getopt
 import traceback
-import telnetlib
+import telnetlib.client
 
 VERSION = "0.1.0"
 
@@ -123,9 +144,7 @@ def TelnetConsole():
     if debuglevel > 0:
         log.setLevel( debuglevel )
     # end if
-    tn = telnetlib.Telnet()
-    tn.SetDebugLevel( debuglevel )
-    tn.SetVerboseLevel( debuglevel )
+    tn = telnetlib.client.Telnet()
     if username is not None:
         tn.SetUser( username, password )
     # end if

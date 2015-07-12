@@ -1,11 +1,37 @@
+"""
+    Telnet library for Python - client implementation
+
+    Copyright (C) 2015  Marc Bertens-Nguyen
+
+    This library is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    This library is based on idea of Abhilash Meesala <abhilash929@gmail.com>
+    his basic implementation is heavily extended to make a complete library.
+
+"""
 
 #imported modules
 import errno
 import sys
 import socket
 import select
-import ssl
 import logging
+
+from telnetlib import *
+from telnetlib.option.authentication import TelnetOptionAuthentication
+from telnetlib.option.localecho import TelnetOptionLocalEcho
+
 
 __all__ = ["Telnet", "SslTelnet" ]
 """
@@ -14,7 +40,6 @@ __all__ = ["Telnet", "SslTelnet" ]
     RFC 854, TELNET protocol specification
     RFC 855, TELNET option specifications
     RFC 856, TELNET binary transmission
-    RFC 857, TELNET echo option
     RFC 858, TELNET suppress Go Ahead option
     RFC 859, TELNET status option
     RFC 860, TELNET timing mark option
@@ -49,109 +74,6 @@ DEBUGLEVEL          = 0
 # Telnet protocol defaults
 TELNET_PORT         = 23
 
-# Telnet protocol characters (don't change)
-IAC                 = chr( 255 )    # 0xFF  - Interpret As Command
-DONT                = chr( 254 )    # 0xFE
-DO                  = chr( 253 )    # 0xFD
-WONT                = chr( 252 )    # 0xFC
-WILL                = chr( 251 )    # 0xFB
-theNULL             = chr( 0 )
-
-SE                  = chr( 240 )    # 0xF0  - Subnegotiation End
-NOP                 = chr( 241 )    # 0xF1  - No Operation
-DM                  = chr( 242 )    # 0xF2  - Data Mark
-BRK                 = chr( 243 )    # 0xF3  - Break
-IP                  = chr( 244 )    # 0xF4  - Interrupt process
-AO                  = chr( 245 )    # 0xF5  - Abort output
-AYT                 = chr( 246 )    # 0xF6  - Are You There
-EC                  = chr( 247 )    # 0xF7  - Erase Character
-EL                  = chr( 248 )    # 0xF8  - Erase Line
-GA                  = chr( 249 )    # 0xF9  - Go Ahead
-SB                  = chr( 250 )    # 0xFA  - Subnegotiation Begin
-
-# Telnet protocol options code (don't change)
-# These ones all come from arpa/telnet.h
-BINARY              = chr( 0 )      # 8-bit data path
-ECHO                = chr( 1 )      # echo
-RCP                 = chr( 2 )      # prepare to reconnect
-SGA                 = chr( 3 )      # suppress go ahead
-NAMS                = chr( 4 )      # approximate message size
-STATUS              = chr( 5 )      # give status
-TM                  = chr( 6 )      # timing mark
-RCTE                = chr( 7 )      # remote controlled transmission and echo
-NAOL                = chr( 8 )      # negotiate about output line width
-NAOP                = chr( 9 )      # negotiate about output page size
-NAOCRD              = chr( 10 )     # negotiate about CR disposition
-NAOHTS              = chr( 11 )     # negotiate about horizontal tabstops
-NAOHTD              = chr( 12 )     # negotiate about horizontal tab disposition
-NAOFFD              = chr( 13 )     # negotiate about formfeed disposition
-NAOVTS              = chr( 14 )     # negotiate about vertical tab stops
-NAOVTD              = chr( 15 )     # negotiate about vertical tab disposition
-NAOLFD              = chr( 16 )     # negotiate about output LF disposition
-XASCII              = chr( 17 )     # extended ascii character set
-LOGOUT              = chr( 18 )     # force logout
-BM                  = chr( 19 )     # byte macro
-DET                 = chr( 20 )     # data entry terminal
-SUPDUP              = chr( 21 )     # supdup protocol
-SUPDUPOUTPUT        = chr( 22 )     # supdup output
-SNDLOC              = chr( 23 )     # send location
-TTYPE               = chr( 24 )     # terminal type
-EOR                 = chr( 25 )     # end or record
-TUID                = chr( 26 )     # TACACS user identification
-OUTMRK              = chr( 27 )     # output marking
-TTYLOC              = chr( 28 )     # terminal location number
-VT3270REGIME        = chr( 29 )     # 3270 regime
-X3PAD               = chr( 30 )     # X.3 PAD
-NAWS                = chr( 31 )     # window size
-TSPEED              = chr( 32 )     # terminal speed
-LFLOW               = chr( 33 )     # remote flow control
-LINEMODE            = chr( 34 )     # Linemode option
-XDISPLOC            = chr( 35 )     # X Display Location
-OLD_ENVIRON         = chr( 36 )     # Old - Environment variables
-AUTHENTICATION      = chr( 37 )     # Authenticate
-ENCRYPT             = chr( 38 )     # Encryption option
-NEW_ENVIRON         = chr( 39 )     # New - Environment variables
-# the following ones come from
-# http://www.iana.org/assignments/telnet-options
-# Unfortunately, that document does not assign identifiers
-# to all of them, so we are making them up
-TN3270E             = chr( 40 )     # TN3270E
-XAUTH               = chr( 41 )     # XAUTH
-CHARSET             = chr( 42 )     # CHARSET
-RSP                 = chr( 43 )     # Telnet Remote Serial Port
-COM_PORT_OPTION     = chr( 44 )     # Com Port Control Option
-SUPPRESS_LOCAL_ECHO = chr( 45 )     # Telnet Suppress Local Echo
-TLS                 = chr( 46 )     # Telnet Start TLS
-KERMIT              = chr( 47 )     # KERMIT
-SEND_URL            = chr( 48 )     # SEND-URL
-FORWARD_X           = chr( 49 )     # FORWARD_X
-PRAGMA_LOGON        = chr( 138 )    # TELOPT PRAGMA LOGON
-SSPI_LOGON          = chr( 139 )    # TELOPT SSPI LOGON
-PRAGMA_HEARTBEAT    = chr( 140 )    # TELOPT PRAGMA HEARTBEAT
-EXOPL               = chr( 255 )    # Extended-Options-List
-NOOPT               = chr( 0 )
-
-AUTHENTICATION_IS       = chr( 0 )
-AUTHENTICATION_SEND     = chr( 1 )
-AUTHENTICATION_REPLY    = chr( 2 )
-AUTHENTICATION_NAME     = chr( 3 )
-
-AUTH_TYPE_NULL          = chr( 0 )
-AUTH_TYPE_KERBEROS_V4   = chr( 1 )
-AUTH_TYPE_KERBEROS_V5   = chr( 2 )
-AUTH_TYPE_SPX           = chr( 3 )
-AUTH_TYPE_MINK          = chr( 4 )
-AUTH_TYPE_SRP           = chr( 5 )
-AUTH_TYPE_RSA           = chr( 6 )
-AUTH_TYPE_SSL           = chr( 7 )
-AUTH_TYPE_unassigned1   = chr( 8 )
-AUTH_TYPE_unassigned2   = chr( 9 )
-AUTH_TYPE_LOKI          = chr( 10 )
-AUTH_TYPE_SSA           = chr( 11 )
-AUTH_TYPE_KEA_SJ        = chr( 12 )
-AUTH_TYPE_KEA_SJ_INTEG  = chr( 13 )
-AUTH_TYPE_DSS           = chr( 14 )
-AUTH_TYPE_NTLM          = chr( 15 )
 
 def IAC_Option( val ):
     options = { BINARY:             "8-bit data path",
@@ -212,13 +134,13 @@ def IAC_Option( val ):
                 SSPI_LOGON:         "TELOPT SSPI LOGON",
                 PRAGMA_HEARTBEAT:   "TELOPT PRAGMA HEARTBEAT",
                 EXOPL:              "Extended-Options-List" }
-    log.debug( "IAC_Option: %i - %X - %c" % ( ord( val ), ord( val ), val ) )
+    # log.debug( "IAC_Option: %i - %X - %c" % ( ord( val ), ord( val ), val ) )
     try:
-        return "0x%02X: %s" % ( ord( val ), options[ val ] )
+        return "%s(0x%02X)" % ( options[ val ], ord( val ) )
     except Exception, exc:
         log.error( exc )
     # end if
-    return "0x%02X: %d" % ( ord( val ), ord( val ) )
+    return "%d (0x%02X)" % ( ord( val ), ord( val ) )
 # end def
 
 def IAC_Command( cmd ):
@@ -237,91 +159,13 @@ def IAC_Command( cmd ):
                 DM:     'DM',
                 NOP:    'NOP',
                 SE:     'SE' }
-    log.debug( "IAC_Command: %i - %X - %s" % ( ord( cmd ), ord( cmd ), cmd ) )
+    # log.debug( "IAC_Command: %i - %X - %s" % ( ord( cmd ), ord( cmd ), cmd ) )
     try:
-        return "0x%02X: %s" % ( ord( cmd ), Command[ cmd ] )
+        return "%s(0x%02X)" % ( Command[ cmd ], ord( cmd ) )
     except Exception, exc:
         log.error( exc )
-    return "0x%02X: %d" % ( ord( cmd ), ord( cmd ) )
+    return "%d(0x%02X)" % ( ord( cmd ), ord( cmd ) )
 # end def
-
-class TelnetOption:
-    def Do( self, telnet, sock ):
-        return
-    # end def
-
-    def Dont( self, telnet, sock ):
-        return
-    # end def
-
-    def Will( self, telnet, sock ):
-        return
-    # end def
-
-    def Wont( self, telnet, sock ):
-        return
-    # end def
-
-    def Execute( self, telnet, sock, sbdataq ):
-        return
-    # end def
-# end class
-
-class TelnetOptionLocalEcho( TelnetOption ):
-    def Do( self, telnet, sock ):
-        log.debug( "IAC DO ECHO" )
-        sock.sendall( IAC + DO + ECHO )
-        return
-    # end def
-# end class
-
-class TelnetOptionAuthentication( TelnetOption ):
-    def Do( self, telnet, sock ):
-        log.debug( "IAC WILL AUTHENTICATION" )
-        sock.sendall( IAC + WILL + AUTHENTICATION )
-        return
-    # end def
-
-    def Execute( self, telnet, sock, sbdataq ):
-        log.info( " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in sbdataq ] ) )
-        if sbdataq[ 0 ] == AUTHENTICATION:
-            if sbdataq[ 1 ] == AUTHENTICATION_SEND and sbdataq[ 2 ] == AUTH_TYPE_SSL:
-                log.info( 'AUTHENTICATION.SEND = %d = %s' % ( ord( sbdataq[ 1 ] ), "SSL*" ) )
-                 # <= "ff:fa:25:00:07:00:01:ff:f0"
-                log.info( 'AUTHENTICATION.REPLY = %d = %s' % ( 0, "SSL*" ) )
-                sock.sendall( IAC + SB + AUTHENTICATION + AUTHENTICATION_IS + AUTH_TYPE_SSL + chr(0) + chr(1) + IAC + SE )
-            elif sbdataq[ 1 ] == AUTHENTICATION_REPLY and sbdataq[ 2 ] == AUTH_TYPE_SSL:
-                # => "ff:fa:25:02:07:00:02:ff:f0""
-                #     IAC SB
-                #       AUTHENTICATION REPLY SSL 00 02
-                #     IAC SE
-                log.info( 'AUTHENTICATION.SEND = %d = %s' % ( ord( sbdataq[ 1 ] ), "SSL*" ) )
-                """
-                    Now this is little tricky,
-                """
-                sslsock = ssl.wrap_socket( sock,
-                            ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
-                            # ssl_version=ssl.PROTOCOL_TLSv1,
-                            ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
-                            cert_reqs=ssl.CERT_NONE,
-                            ca_certs='/etc/ssl/certs/ca-certificates.crt'
-                            )
-                # Start the negotiate
-                sslsock.getpeercert()
-                # Swap the sockets
-                telnet.sock = sslsock
-                telnet.sockssl = sock
-            else:
-                log.info( 'AUTHENTICATION.SEND = %d unsupported' % ( ord( sbdataq[ 1 ] ) ) )
-            # end if
-        else:
-            # IAC SB <option-bytes> IAC SE
-            log.info( 'IAC SB %s IAC SE is unsupported' % ( " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in sbdataq ] ) ) )
-            pass
-        # end if
-        return
-    # end def
-# end class
 
 class Telnet:
 
@@ -386,8 +230,6 @@ class Telnet:
         With a hostname argument, it connects the instance; port number
         and timeout are optional.
         """
-        self.debuglevel             = DEBUGLEVEL
-        self.verboselevel           = DEBUGLEVEL
         self.host                   = host
         self.port                   = port
         self.timeout                = timeout
@@ -399,7 +241,6 @@ class Telnet:
         self.iacseq                 = ''        # Buffer for IAC sequence.
         self.sb                     = 0         # flag for SB and SE sequence.
         self.sbdataq                = ''
-        self.option_callback        = self.CallBackOption
         self.has_poll               = hasattr(select, 'poll')
         self.username               = None
         self.password               = None
@@ -407,6 +248,8 @@ class Telnet:
         self.options                = [ None ] * 256
         self.options[ ord( ECHO ) ] = TelnetOptionLocalEcho()
         self.options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
+        # self.options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
+
         if host is not None:
             self.open( host, port, timeout )
         # end if
@@ -420,7 +263,7 @@ class Telnet:
     # end def
 
     def SetTerminal( self, terminal ):
-        self.terminal   = terminal
+        self.terminal           = terminal
         return
     # end def
 
@@ -448,43 +291,6 @@ class Telnet:
     def __del__( self ):
         """Destructor -- close the connection."""
         self.close()
-        return
-    # end def
-
-    def msg( self, msg, *args ):
-        """ Print a debug message, when the debug level is > 0.
-
-            If extra arguments are present, they are substituted in the
-            message using the standard string formatting operator.
-
-        """
-        if self.debuglevel > 0:
-            if args:
-                log.info( msg % args )
-            else:
-                log.info( msg )
-            # end if
-        #end if
-        return
-    # end def
-
-    def SetVerboseLevel( self, verboselevel ):
-        """Set the debug level.
-
-        The higher it is, the more debug output you get (on sys.stdout).
-
-        """
-        self.verboselevel = verboselevel
-        return
-    # end def
-
-    def SetDebugLevel( self, debuglevel ):
-        """Set the debug level.
-
-        The higher it is, the more debug output you get (on sys.stdout).
-
-        """
-        self.debuglevel = debuglevel
         return
     # end def
 
@@ -525,7 +331,7 @@ class Telnet:
         if IAC in buffer:
             buffer = buffer.replace(IAC, IAC+IAC)
         # end if
-        self.msg("send %r", buffer)
+        log.debug( "send %r", buffer )
         self.sock.sendall(buffer)
         return
     # end def
@@ -576,7 +382,7 @@ class Telnet:
                 # end try
                 for fd, mode in ready:
                     if mode & poll_in_or_priority_flags:
-                        i = max(0, len(self.__cookedq)-n)
+                        i = max(0, len(self.cookedq)-n)
                         self.fill_rawq()
                         self.process_rawq()
                         i = self.cookedq.find( match, i )
@@ -790,30 +596,28 @@ class Telnet:
                         # end if
                         if optionObj is not None:
                             optionObj.Execute( self, self.sock, self.sbdataq )
-                        elif self.option_callback:
-                            # Callback is supposed to look into
-                            # the sbdataq
-                            self.option_callback( self.sock, c, NOOPT )
+                        elif c == SB:
+                            pass
                         else:
                             # We can't offer automatic processing of
                             # suboptions. Alas, we should not get any
                             # unless we did a WILL/DO before.
-                            self.msg( 'IAC %s not recognized' % IAC_Option( c ) )
+                            log.warn( 'IAC %s not recognized' % IAC_Option( c ) )
                         # end if
                     # end if
                 elif len( self.iacseq ) == 2:
                     cmd         = self.iacseq[ 1 ]
                     self.iacseq = ''
                     opt         = c
+                    log.info( 'recv IAC %s %s', IAC_Command( cmd ), IAC_Option( opt ) )
                     optionObj   = self.options[ ord( opt ) ]
                     log.info( "IAC option %i -> %s" % ( ord( opt ), optionObj ) )
-                    self.msg('IAC %s %s', IAC_Command( cmd ), IAC_Option( opt ) )
                     if optionObj is None:
                         if cmd in ( WILL, WONT ):
-                            self.msg( 'IAC DONT %s', IAC_Option( opt ) )
+                            log.info( 'send IAC DONT %s', IAC_Option( opt ) )
                             self.sock.sendall( IAC + DONT + opt )
                         else:
-                            self.msg( 'IAC WONT %s', IAC_Option( opt ) )
+                            log.info( 'send IAC WONT %s', IAC_Option( opt ) )
                             self.sock.sendall( IAC + WONT + opt )
                         # end if
                     else:
@@ -838,65 +642,6 @@ class Telnet:
         self.sbdataq = self.sbdataq + buf[1]
         return
     # end def
-
-    def CallBackOption( self, sock, cmd, opt ):
-        if cmd == DO and opt == AUTHENTICATION:
-            self.sock.sendall( IAC + WILL + opt )
-        elif cmd in ( DO, DONT ):
-            self.msg( '- IAC WONT %s', IAC_Option( opt ) )
-            self.sock.sendall( IAC + WONT + opt )
-        elif cmd in ( WILL, WONT ):
-            self.msg( '- IAC DONT %s', IAC_Option( opt ) )
-            self.sock.sendall( IAC + DONT + opt )
-        else:
-            self.msg( '- IAC %s, %s', IAC_Command( cmd ), IAC_Option( opt ) )
-            if cmd == SE:
-                self.msg( " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in self.sbdataq ] ) )
-                if self.sbdataq[ 0 ] == AUTHENTICATION:
-                    if self.sbdataq[ 1 ] == AUTHENTICATION_SEND and self.sbdataq[ 2 ] == AUTH_TYPE_SSL:
-                        self.msg( 'AUTHENTICATION.SEND = %d = %s', ord( self.sbdataq[ 1 ] ), "SSL*" )
-                        # <= "ff:fa:25:00:07:00:01:ff:f0"
-                        self.msg( 'AUTHENTICATION.REPLY = %d = %s', 0, "SSL*" )
-                        self.sock.sendall( IAC + SB + AUTHENTICATION + AUTHENTICATION_IS + AUTH_TYPE_SSL + chr(0) + chr(1) + IAC + SE )
-                    elif self.sbdataq[ 1 ] == AUTHENTICATION_REPLY and self.sbdataq[ 2 ] == AUTH_TYPE_SSL:
-                        # => "ff:fa:25:02:07:00:02:ff:f0""
-                        #     IAC SB
-                        #       AUTHENTICATION REPLY SSL 00 02
-                        #     IAC SE
-                        self.msg( 'AUTHENTICATION.SEND = %d = %s', ord( self.sbdataq[ 1 ] ), "SSL*" )
-                        """
-                            Now this is little tricky,
-                        """
-                        self.sslsock = ssl.wrap_socket( self.sock,
-                                    ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
-                                    # ssl_version=ssl.PROTOCOL_TLSv1,
-                                    ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
-                                    cert_reqs=ssl.CERT_NONE,
-                                    ca_certs='/etc/ssl/certs/ca-certificates.crt'
-                                    )
-                        # Start the negotiate
-                        self.sslsock.getpeercert()
-                        # Swap the sockets
-                        tmp = self.sock
-                        self.sock = self.sslsock
-                        self.sockssl = tmp
-                    else:
-                        self.msg( 'AUTHENTICATION.SEND = %d unsupported', ord( self.sbdataq[ 1 ] ) )
-                    # end if
-                else:
-                    # IAC SB <option-bytes> IAC SE
-                    self.msg( 'IAC SB %s IAC SE is unsupported', " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in self.sbdataq ] ) )
-                    pass
-                # end if
-            elif cmd == SB:
-                # At this moment its just to start signal the block, it will be finalized in IAC SE
-                pass
-            else:
-                self.msg( 'IAC %d %d [%s] is unsupported', ord( cmd ), ord( opt ), " ".join( [ "{0:#x}={0:#d}".format( ord( x ) ) for x in self.sbdataq ] ) )
-            # end if
-        # end if
-        return
-    # end if
 
     def rawq_getchar(self):
         """Get next char from raw queue.
@@ -934,7 +679,7 @@ class Telnet:
         # The buffer size should be fairly small so as to avoid quadratic
         # behavior in process_rawq() above
         buf = self.sock.recv(50)
-        self.msg( "recv %r", buf )
+        log.debug( "recv %r", buf )
         self.eof    = (not buf)
         self.rawq   = self.rawq + buf
         return
@@ -942,7 +687,7 @@ class Telnet:
 
     def sock_avail(self):
         """Test whether data is available on the socket."""
-        return select.select([self], [], [], 0) == ([self], [], [])
+        return select.select( [ self ], [], [], 0 ) == ( [ self ], [], [] )
     # end def
 
     def interact(self):
@@ -952,7 +697,7 @@ class Telnet:
             return
         # end if
         while 1:
-            rfd, wfd, xfd = select.select([self, sys.stdin], [], [])
+            rfd, wfd, xfd = select.select( [ self, sys.stdin ], [], [] )
             if self in rfd:
                 try:
                     text = self.read_eager()
@@ -962,7 +707,7 @@ class Telnet:
                     break
                 # end try
                 if text:
-                    sys.stdout.write(text)
+                    sys.stdout.write( text )
                     sys.stdout.flush()
                 # end if
             # end if
@@ -971,7 +716,14 @@ class Telnet:
                 if not line:
                     break
                 # end if
-                self.write(line)
+                optionObj = self.options[ ord( ECHO ) ]
+                if optionObj is not None:
+                    if optionObj.Echo:
+                        self.write( line )
+                    # end if
+                else:
+                    self.write( line )
+                # end if
             # end if
         # end while
         return
@@ -998,6 +750,7 @@ class Telnet:
                 data = self.read_eager()
             except EOFError:
                 print '*** Connection closed by remote host ***'
+                log.info( '*** Connection closed by remote host ***' )
                 return
             # end try
             if data:
@@ -1170,121 +923,4 @@ class Telnet:
         # end if
         return (-1, None, text)
     # end def
-
-def check_host_name( peercert, name ):
-    """Simple certificate/host name checker.  Returns True if the
-    certificate matches, False otherwise.  Does not support
-    wildcards."""
-    # Check that the peer has supplied a certificate.
-    # None/{} is not acceptable.
-    print( repr( peercert ) )
-    if not peercert:
-        print( "not peercert" )
-        return False
-    # end if
-    if peercert.has_key( "subjectAltName" ):
-        for typ, val in peercert[ "subjectAltName" ]:
-            print( "typ : %s\nval = %s" % ( typ, val ) )
-            if typ == "DNS" and val == name:
-                return True
-            # end def
-        # next
-    else:
-        # Only check the subject DN if there is no subject alternative
-        # name.
-        cn = None
-        for attr, val in peercert[ "subject" ]:
-            print( "attr : %s\nval = %s" % ( attr, val ) )
-            # Use most-specific (last) commonName attribute.
-            if attr == "commonName":
-                cn = val
-            # end if
-        # next
-        if cn is not None:
-            return cn == name
-        # end if
-    # end if
-    return False
-# end def
-
-class SslTelnet( Telnet ):
-    def __init__( self, host=None, port=0,
-                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT ):
-        self.ssl_sock = 0
-        Telnet.__init__( self, host, port, timeout )
-        return
-    # end def
-
-    def open( self, host, port=0, timeout=socket._GLOBAL_DEFAULT_TIMEOUT ):
-        """Connect to a host.
-
-        The optional second argument is the port number, which
-        defaults to the standard telnet port (23).
-
-        Don't try to reopen an already connected instance.
-        """
-        self.eof = 0
-        if not port:
-            port = TELNET_PORT
-        # end if
-        self.host = host
-        self.port = port
-        self.timeout = timeout
-        print( "Make connection" )
-        self.sock = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        #self.sock = socket.create_connection( ( self.host, self.port ) )
-        #print( self.sock.recv(100) )
-
-
-        print( "Setup SSL/TLS socket" )
-        self.sslsock = ssl.wrap_socket( self.sock,
-                      ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
-                      # ssl_version=ssl.PROTOCOL_TLSv1,
-                      ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
-                      cert_reqs=ssl.CERT_NONE,
-                      ca_certs='/etc/ssl/certs/ca-certificates.crt'
-                       )
-        print( self.sslsock )
-        self.sslsock.do_handshake_on_connect    = True
-        print( "Setup SSL/TLS connection" )
-        self.sslsock.connect( ( self.host, self.port ) )
-        print( self.sslsock._connected )
-        print( "Check host, SSL version %i" % ( self.sslsock.ssl_version ) )
-        # self.sslsock.getpeercert() #triggers the handshake as a side effect.
-        if not check_host_name( self.sslsock.getpeercert(), 'eBox Server' ):
-            print( "peer certificate does not match host name" )
-        self.sslsock.write( 'GET https://daecon\n' )
-        tmp = self.sock
-        self.sock = self.sslsock
-        self.sockssl = tmp
-        return
-        # self.sock = socket.create_connection((host, port), timeout)
-    # end def
-
-
-    def close( self ):
-        """Close the connection."""
-        if self.sock:
-            self.sock.close()
-        # end if
-        if self.ssl_sock:
-            self.ssl_sock.close()
-        # end if
-        self.sock = 0
-        self.ssl_sock = 0
-        self.eof = 1
-        self.iacseq = ''
-        self.sb = 0
-    # end def
-
-    def get_socket( self ):
-        """Return the socket object used internally."""
-        return self.sock
-    # end def
-
-    def fileno( self ):
-        """Return the fileno() of the socket object used internally."""
-        return self.sock.fileno()
-    # end def
 # end class
-
