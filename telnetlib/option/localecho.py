@@ -38,7 +38,7 @@ class TelnetOptionLocalEcho( TelnetOption ):
     def Echo( self ):
         return self.__echo
 
-    def Do( self, telnet, sock ):
+    def Do( self, telnet ):
         """
             IAC DO ECHO
 
@@ -52,11 +52,11 @@ class TelnetOptionLocalEcho( TelnetOption ):
             :return:
         """
         self.log.debug( "IAC DO ECHO" )
-        sock.sendall( IAC + DO + ECHO )
+        telnet._sock.sendall( IAC + DO + ECHO )
         return
     # end def
 
-    def Dont( self, telnet, sock ):
+    def Dont( self, telnet ):
         """
             IAC DON'T ECHO
 
@@ -69,11 +69,11 @@ class TelnetOptionLocalEcho( TelnetOption ):
             :return:
         """
         self.log.debug( "IAC DONT ECHO" )
-        sock.sendall( IAC + DONT + ECHO )
+        telnet._sock.sendall( IAC + DONT + ECHO )
         return
     # end def
 
-    def Will( self, telnet, sock ):
+    def Will( self, telnet ):
         """
             IAC WILL ECHO
 
@@ -86,11 +86,11 @@ class TelnetOptionLocalEcho( TelnetOption ):
             :return:
         """
         self.log.debug( "IAC WILL ECHO" )
-        sock.sendall( IAC + WILL + ECHO )
+        telnet._sock.sendall( IAC + WILL + ECHO )
         return
     # end def
 
-    def Wont( self, telnet, sock ):
+    def Wont( self, telnet ):
         """
             IAC WON'T ECHO
 
@@ -103,11 +103,11 @@ class TelnetOptionLocalEcho( TelnetOption ):
             :return:
         """
         self.log.debug( "IAC WONT ECHO" )
-        sock.sendall( IAC + WONT + ECHO )
+        telnet._sock.sendall( IAC + WONT + ECHO )
         return
     # end def
 
-    def Execute( self, telnet, sock, sbdataq ):
+    def Execute( self, telnet, sbdataq ):
         self.log.debug( "enter TelnetOptionLocalEcho.Execute()" )
         self.log.info( "sbdataq = [%s]" % ( sbdataq.encode( 'hex' ) ) )
         self.log.debug( "leave TelnetOptionLocalEcho.Execute()" )

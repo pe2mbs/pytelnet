@@ -50,13 +50,13 @@ class TelnetOptionAuthentication( TelnetOption ):
     AUTHENTICATION_REPLY    = chr( 2 )
     AUTHENTICATION_NAME     = chr( 3 )
 
-    def Do( self, telnet, sock ):
+    def Do( self, telnet ):
         self.log.debug( "IAC WILL AUTHENTICATION" )
-        sock.sendall( IAC + WILL + AUTHENTICATION )
+        telnet._sock.sendall( IAC + WILL + AUTHENTICATION )
         return
     # end def
 
-    def Execute( self, telnet, sock, sbdataq ):
+    def Execute( self, telnet, sbdataq ):
         self.log.debug( "enter TelnetOptionAuthentication.Execute()" )
         self.log.info( "sbdataq = [%s]" % ( sbdataq.encode( 'hex' ) ) )
         if sbdataq[ 0 ] == AUTHENTICATION:
@@ -69,7 +69,7 @@ class TelnetOptionAuthentication( TelnetOption ):
                     #       AUTHENTICATION SEND 00 01
                     #   IAC SE
                     self.log.info( 'AUTHENTICATION.IS SSL %02X %02X' % ( 0, 1 ) )
-                    self._SendIacSbSe( sock, AUTHENTICATION + self.AUTHENTICATION_IS + self.AUTH_TYPE_SSL + chr( 0 ) + chr( 1 ) )
+                    self._SendIacSbSe( telnet._sock, AUTHENTICATION + self.AUTHENTICATION_IS + self.AUTH_TYPE_SSL + chr( 0 ) + chr( 1 ) )
                 # end if
             elif action == self.AUTHENTICATION_REPLY:
                 if sbdataq[ 2 ] == self.AUTH_TYPE_SSL:
@@ -81,7 +81,7 @@ class TelnetOptionAuthentication( TelnetOption ):
                     """
                         Now this start the SSL/TLS connection
                     """
-                    sslsock = ssl.wrap_socket( sock,
+                    sslsock = ssl.wrap_socket( telnet._sock,
                                 ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
                                 # ssl_version=ssl.PROTOCOL_TLSv1,
                                 ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
@@ -91,8 +91,9 @@ class TelnetOptionAuthentication( TelnetOption ):
                     # Start the negotiate
                     sslsock.getpeercert()
                     # Swap the sockets on the TELNET class
-                    telnet.sock = sslsock
-                    telnet.sockssl = sock
+                    sock            = telnet._sock
+                    telnet._sock    = sslsock
+                    telnet._sockssl = sock
                 # end if
             else:
                 self.log.info( 'AUTHENTICATION.(%d) unsupported' % ( ord( action ) ) )
