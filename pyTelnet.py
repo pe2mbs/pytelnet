@@ -28,6 +28,7 @@ import logging
 import getopt
 import traceback
 import telnetlib.client
+import telnetlib.sslclient
 
 VERSION = "0.1.0"
 
@@ -63,12 +64,13 @@ def TelnetConsole():
     debuglevel      = 0
     verboselevel    = 0
     try:
-        opts, myargs = getopt.getopt( sys.argv[1:], 'd:vu:p:i:t:h',
-                                    ['debug=', 'verbose', 'user=', 'pass=', 'terminal=', 'timeout=', 'help'])
+        opts, myargs = getopt.getopt( sys.argv[1:], 'd:vu:p:i:t:hs',
+                                    ['debug=', 'verbose', 'user=', 'pass=', 'terminal=', 'timeout=', 'ssl', 'help'])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     # end try
+    sslTunnel   = False
     port        = 23
     timeout     = 0.5
     username    = None
@@ -80,6 +82,8 @@ def TelnetConsole():
             sys.exit(2)
         elif opt in ('-v', '--verbose'):
             verboselevel = logging.INFO
+        elif opt in ('-s', '--ssl'):
+            sslTunnel = True
         elif opt in ('-d', '--debug'):
             try:
                 debuglevel = int( arg )
@@ -144,12 +148,19 @@ def TelnetConsole():
     if debuglevel > 0:
         log.setLevel( debuglevel )
     # end if
-    tn = telnetlib.client.Telnet()
-    if username is not None:
-        tn.SetUser( username, password )
+    log.info( "=-=" * 30 )
+    if sslTunnel:
+        tn = telnetlib.sslclient.Telnet()
+    else:
+        tn = telnetlib.client.Telnet()
     # end if
+    if username is not None:
+        tn.setUserPassword( username, password )
+    # end if
+    print( terminal )
     if terminal is not None:
-        tn.SetTerminal( terminal )
+        tn.Terminal = terminal
+        tn.setTerminal( terminal )
     # end if
     try:
         tn.open( host, port, timeout = timeout )
@@ -160,6 +171,8 @@ def TelnetConsole():
     try:
         tn.interact()
     except KeyboardInterrupt, exc:
+        pass
+    except telnetlib.client.TelnetConnectionClosed, exc:
         pass
     except Exception, exc:
         log.error( exc )

@@ -20,6 +20,13 @@
     his basic implementation is heavily extended to make a complete library.
 
 """
+import socket
+import ssl
+import logging
+import telnetlib.client
+
+log = logging.getLogger()
+
 
 def check_host_name( peercert, name ):
     """Simple certificate/host name checker.  Returns True if the
@@ -57,15 +64,15 @@ def check_host_name( peercert, name ):
     return False
 # end def
 
-class SslTelnet( Telnet ):
+class Telnet( telnetlib.client.Telnet ):
     def __init__( self, host=None, port=0,
-                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT ):
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT, terminal = "vt200" ):
         self.ssl_sock = 0
-        Telnet.__init__( self, host, port, timeout )
+        telnetlib.client.Telnet.__init__( self, host, port, timeout, terminal )
         return
     # end def
 
-    def open( self, host, port=0, timeout=socket._GLOBAL_DEFAULT_TIMEOUT ):
+    def open( self, host, port = 23, timeout=socket._GLOBAL_DEFAULT_TIMEOUT ):
         """Connect to a host.
 
         The optional second argument is the port number, which
@@ -73,57 +80,33 @@ class SslTelnet( Telnet ):
 
         Don't try to reopen an already connected instance.
         """
-        self.eof = 0
-        if not port:
-            port = TELNET_PORT
-        # end if
-        self.host = host
-        self.port = port
-        self.timeout = timeout
+        self.setHost( host, port, timeout )
         log.info( "Make connection" )
-        self.sock = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+        self._sock = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         #self.sock = socket.create_connection( ( self.host, self.port ) )
         #print( self.sock.recv(100) )
-
-
         log.info( "Setup SSL/TLS socket" )
-        self.sslsock = ssl.wrap_socket( self.sock,
+        self._sslsock = ssl.wrap_socket( self._sock,
                       ciphers="HIGH:-aNULL:-eNULL:-PSK:RC4-SHA:RC4-MD5",
                       # ssl_version=ssl.PROTOCOL_TLSv1,
                       ssl_version=ssl.PROTOCOL_SSLv23 | ssl.PROTOCOL_TLSv1,
                       cert_reqs=ssl.CERT_NONE,
                       ca_certs='/etc/ssl/certs/ca-certificates.crt'
                        )
-        log.info( self.sslsock )
-        self.sslsock.do_handshake_on_connect    = True
+        log.info( self._sslsock )
+        self._sslsock.do_handshake_on_connect    = True
         log.info( "Setup SSL/TLS connection" )
-        self.sslsock.connect( ( self.host, self.port ) )
-        log.info( self.sslsock._connected )
-        log.info( "Check host, SSL version %i" % ( self.sslsock.ssl_version ) )
+        self._sslsock.connect( ( self.Host, self.Port ) )
+        log.info( "Connected:   %s" % ( self._sslsock._connected ) )
+        log.info( "SSL version: %i" % ( self._sslsock.ssl_version ) )
         # self.sslsock.getpeercert() #triggers the handshake as a side effect.
-        if not check_host_name( self.sslsock.getpeercert(), 'eBox Server' ):
-            log.info( "peer certificate does not match host name" )
-        self.sslsock.write( 'GET https://daecon\n' )
-        tmp = self.sock
-        self.sock = self.sslsock
-        self.sockssl = tmp
+        #if not check_host_name( self.sslsock.getpeercert(), 'eBox Server' ):
+        #    log.info( "peer certificate does not match host name" )
+
+        tmp = self._sock
+        self._sock = self._sslsock
+        self._sockssl = tmp
         return
         # self.sock = socket.create_connection((host, port), timeout)
-    # end def
-
-
-    def close( self ):
-        """Close the connection."""
-        if self.sock:
-            self.sock.close()
-        # end if
-        if self.ssl_sock:
-            self.ssl_sock.close()
-        # end if
-        self.sock   = 0
-        self.ssl_sock = 0
-        self.eof    = 1
-        self.iacseq = ''
-        self.sb     = 0
     # end def
 # end class
