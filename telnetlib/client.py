@@ -21,10 +21,10 @@
 
 """
 
-#imported modules
+# imported modules
 import errno
-import os
-import stat
+# import os
+# import stat
 import sys
 import socket
 import select
@@ -34,79 +34,9 @@ from telnetlib import *
 from telnetlib.option.authentication import TelnetOptionAuthentication
 from telnetlib.option.localecho import TelnetOptionLocalEcho
 from telnetlib.option import IAC_Option
-<<<<<<< HEAD
-import threading
+from telnetlib.win32 import Win32stdioThread, Win32readHostThread
+from telnetlib.emulation.vt6530 import VT6530
 
-class Win32stdioThread( threading.Thread ):
-    def __init__( self, telnet ):
-        self.telnet     = telnet
-        threading.Thread.__init__( self, target=self.run )
-        return
-    # end def
-
-    def run( self ):
-        """
-            Helper for win32_interact() -- this executes in the other thread.
-        """
-        while 1:
-            try:
-                line = sys.stdin.readline()
-                if not line:
-                    break
-                # end if
-                log.info( "write text in mt_interact" )
-                # Need LF to CR LF translation
-                if self.telnet.TranslateLF2CRLF:
-                    line = line.replace( '\n', '\r\n' )
-                # end if
-                self.telnet.write( line )
-            except:
-                break
-            # end try
-        # end while
-        self.telnet.quit()
-        return
-    # end def
-
-    def quit( self ):
-        self._Thread__stop()
-        return
-    # end def
-# end class
-
-class Win32readHostThread( threading.Thread ):
-    def __init__( self, telnet ):
-        self.telnet     = telnet
-        threading.Thread.__init__( self, target = self.run )
-        return
-    # end def
-
-    def run( self ):
-        while 1:
-            try:
-                data = self.telnet.read_eager()
-            except EOFError:
-                print '*** Connection closed by remote host ***'
-                log.info( '*** Connection closed by remote host ***' )
-                break
-            # end try
-            if data:
-                sys.stdout.write( data )
-            else:
-                sys.stdout.flush()
-            # end if
-        # end while
-        self.telnet.quit()
-        return
-    # end def
-
-    def quit( self ):
-        self._Thread__stop()
-        return
-    # end def
-# end class
-=======
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
 __all__ = [ "Telnet" ]
 """
@@ -143,72 +73,6 @@ __all__ = [ "Telnet" ]
 """
 
 log = logging.getLogger()
-
-# Tunable parameters
-DEBUGLEVEL          = 0
-# Telnet protocol defaults
-TELNET_PORT         = 23
-
-def IAC_Command( cmd ):
-    Command = { DONT:   'DONT',
-                DO:     'DO',
-                WONT:   'WONT',
-                WILL:   'WILL',
-                SB:     'SB',
-                GA:     'GA',
-                EL:     'EL',
-                EC:     'EC',
-                AYT:    'AYT',
-                AO:     'AO',
-                IP:     'IP',
-                BRK:    'BRK',
-                DM:     'DM',
-                NOP:    'NOP',
-                SE:     'SE' }
-    # log.debug( "IAC_Command: %i - %X - %s" % ( ord( cmd ), ord( cmd ), cmd ) )
-    try:
-        return "%s(0x%02X)" % ( Command[ cmd ], ord( cmd ) )
-    except Exception, exc:
-        log.error( exc )
-    return "%d(0x%02X)" % ( ord( cmd ), ord( cmd ) )
-# end def
-
-class TelnetConnectionClosed( Exception ):
-    pass
-# end class
-
-class TerminalEmulation( object ):
-    def __init__( self ):
-        return
-    # end def
-
-    def Receive( self, buffer ):
-        return buffer
-    # end def
-
-    def Transmit( self, buffer ):
-        return buffer
-    # end def
-# end class
-
-class VT6530_Emulation( TerminalEmulation ):
-    def __init__( self ):
-        TerminalEmulation.__init__( self )
-        self.__statusRow    = ''
-        self.__currentMode  = 0
-        m_display;
-        m_keys;
-        return
-    # end def
-
-    def Receive( self, buffer ):
-        return buffer
-    # end def
-
-    def Transmit( self, buffer ):
-        return buffer
-    # end def
-# end class
 
 class Telnet( object ):
 
@@ -265,7 +129,7 @@ class Telnet( object ):
 
     """
 
-    def __init__(self, host=None, port=0,
+    def __init__(self, host=None, port = 23,
                  timeout=socket._GLOBAL_DEFAULT_TIMEOUT, terminal = "vt200"):
         """Constructor.
 
@@ -273,9 +137,6 @@ class Telnet( object ):
         With a hostname argument, it connects the instance; port number
         and timeout are optional.
         """
-<<<<<<< HEAD
-        # Needed for 6530 terminal emulation
-        self.__translateLF2CRLF         = False
         # Standard variable
         self.__host                     = host
         self.__port                     = port
@@ -299,31 +160,17 @@ class Telnet( object ):
         self.__options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
         # self.__options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
         Terminal                        = terminal
-=======
-        self.__host                   = host
-        self.__port                   = port
-        self.__timeout                = timeout
-        self._sock                    = None
-        self.__rawq                   = ''
-        self.__irawq                  = 0
-        self.__cookedq                = ''
-        self.__eof                    = 0
-        self.__iacseq                 = ''        # Buffer for IAC sequence.
-        self.__sb                     = 0         # flag for SB and SE sequence.
-        self.__sbdataq                = ''
-        self.__has_poll               = hasattr( select, 'poll' )
-        self.__username               = None
-        self.__password               = None
-        self.__terminal               = None
-        self.__options                = [ None ] * 256
-        self.__options[ ord( ECHO ) ] = TelnetOptionLocalEcho()
-        self.__options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
-        # self.__options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
-
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         if host is not None:
             self.open( host, port, timeout )
         # end if
+        return
+    # end def
+
+    def __del__( self ):
+        """
+            Destructor -- close the connection.
+        """
+        self.close()
         return
     # end def
 
@@ -333,18 +180,6 @@ class Telnet( object ):
         return
     # end def
 
-<<<<<<< HEAD
-    def getTranslateLF2CRLF( self ):
-        return self.__translateLF2CRLF
-    # end def
-
-    def setTranslateLF2CRLF( self, value ):
-        self.__translateLF2CRLF = value
-        return
-    # end def
-
-    TranslateLF2CRLF = property( getTranslateLF2CRLF, setTranslateLF2CRLF )
-
     @property
     def Username( self ):
         return self.__username
@@ -356,19 +191,6 @@ class Telnet( object ):
         return
     # end def
 
-=======
-    @property
-    def Username( self ):
-        return self.__username
-    # end def
-
-    @Username.setter
-    def Username( self, value ):
-        self.__username = value
-        return
-    # end def
-
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     @property
     def Password( self ):
         return self.__password
@@ -380,7 +202,6 @@ class Telnet( object ):
         return
     # end def
 
-<<<<<<< HEAD
     def getTerminal( self ):
         return self.__terminal
     # end def
@@ -389,59 +210,32 @@ class Telnet( object ):
         log.info( "Set TERMINAL = %s" % ( terminal ) )
         self.__terminal = terminal
         if self.__terminal == 'vt6530':
-            self.TranslateLF2CRLF   = True
-            self.__terminalObj      = VT6530_Emulation()
+            self.__terminalObj      = VT6530()
         # end if
         return
     # end def
 
     Terminal = property( getTerminal, setTerminal )
 
-=======
-    @property
-    def Terminal( self ):
-        return self.__terminal
-    # end def
-
-    @Terminal.setter
-    def Terminal( self, terminal ):
-        self.__terminal = terminal
-        return
-    # end def
-
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     def Option( self, option, Object ):
         self.__options[ option ] = Object
         return
     # end def
 
-    def open( self, host, port = TELNET_PORT, timeout = socket._GLOBAL_DEFAULT_TIMEOUT ):
-        """Connect to a host.
-
-        The optional second argument is the port number, which
-        defaults to the standard telnet port (23).
-
-        Don't try to reopen an already connected instance.
+    def open( self, host, port = 23, timeout = socket._GLOBAL_DEFAULT_TIMEOUT ):
         """
-<<<<<<< HEAD
+            Connect to a host.
+
+            The optional second argument is the port number, which
+            defaults to the standard telnet port (23).
+
+            Don't try to reopen an already connected instance.
+        """
         self.setHost( host, port, timeout )
-=======
-        self.__eof      = 0
-        self.__host     = host
-        self.__port     = port
-        self.__timeout  = timeout
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         self._sock      = socket.create_connection( ( self.__host, self.__port ), self.__timeout )
         return
     # end def
 
-    def __del__( self ):
-        """Destructor -- close the connection."""
-        self.close()
-        return
-    # end def
-
-<<<<<<< HEAD
     def setHost( self, host, port, timeout ):
         self.__eof      = 0
         self.__host     = host
@@ -450,8 +244,6 @@ class Telnet( object ):
         return
     # end def
 
-=======
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     @property
     def Host( self ):
         return self.__host
@@ -462,19 +254,16 @@ class Telnet( object ):
         return self.__port
     # end def
 
-    def close(self):
-        """Close the connection."""
-<<<<<<< HEAD
+    def close( self ):
+        """
+            Close the connection.
+        """
         if self._sslsock:
             self._sslsock.close()
         else:
             if self._sock and self._sock:
                 self._sock.close()
             # end if
-=======
-        if self._sock:
-            self._sock.close()
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         # end if
         self._sock = 0
         self.__eof = 1
@@ -484,29 +273,35 @@ class Telnet( object ):
     # end def
 
     def get_socket( self ):
-        """Return the socket object used internally."""
+        """
+            Return the socket object used internally.
+        """
         return self._sock
     # end def
 
     def fileno( self ):
-        """Return the fileno() of the socket object used internally."""
+        """
+            Return the fileno() of the socket object used internally.
+        """
         return self._sock.fileno()
     # end def
 
     def getSocket(self):
-        """Return the socket object used internally."""
+        """
+            Return the socket object used internally.
+        """
         return self._sock
     # end def
 
     def write( self, buffer ):
-        """Write a string to the socket, doubling any IAC characters.
+        """
+            Write a string to the socket, doubling any IAC characters.
 
-        Can block if the connection is blocked.  May raise
-        socket.error if the connection is closed.
-
+            Can block if the connection is blocked.  May raise
+            socket.error if the connection is closed.
         """
         if self.__terminalObj is not None:
-            buffer = self.__terminalObj.Transmit( buffer )
+            buffer = self.__terminalObj.BeforeTransmit( buffer )
         # end if
         if IAC in buffer:
             buffer = buffer.replace( IAC, IAC + IAC )
@@ -517,12 +312,12 @@ class Telnet( object ):
     # end def
 
     def read_until(self, match, timeout=None):
-        """Read until a given string is encountered or until timeout.
+        """
+            Read until a given string is encountered or until timeout.
 
-        When no match is found, return whatever is available instead,
-        possibly the empty string.  Raise EOFError if the connection
-        is closed and no cooked data is available.
-
+            When no match is found, return whatever is available instead,
+            possibly the empty string.  Raise EOFError if the connection
+            is closed and no cooked data is available.
         """
         if self.__has_poll:
             return self._read_until_with_poll( match, timeout )
@@ -531,9 +326,10 @@ class Telnet( object ):
     # end def
 
     def _read_until_with_poll( self, match, timeout ):
-        """Read until a given string is encountered or until timeout.
+        """
+            Read until a given string is encountered or until timeout.
 
-        This method uses select.poll() to implement the timeout.
+            This method uses select.poll() to implement the timeout.
         """
         n = len(match)
         call_timeout = timeout
@@ -588,9 +384,10 @@ class Telnet( object ):
     # end def
 
     def _read_until_with_select(self, match, timeout=None):
-        """Read until a given string is encountered or until timeout.
+        """
+            Read until a given string is encountered or until timeout.
 
-        The timeout is implemented using select.select().
+            The timeout is implemented using select.select().
         """
         n = len(match)
         self.process_rawq()
@@ -630,7 +427,9 @@ class Telnet( object ):
         return self.read_very_lazy()
 
     def read_all( self ):
-        """Read all data until EOF; block until connection closed."""
+        """
+            Read all data until EOF; block until connection closed.
+        """
         self.process_rawq()
         while not self.__eof:
             self.fill_rawq()
@@ -642,11 +441,11 @@ class Telnet( object ):
     # end def
 
     def read_some( self ):
-        """Read at least one byte of cooked data unless EOF is hit.
+        """
+            Read at least one byte of cooked data unless EOF is hit.
 
-        Return '' if EOF is hit.  Block if no data is immediately
-        available.
-
+            Return '' if EOF is hit.  Block if no data is immediately
+            available.
         """
         self.process_rawq()
         while not self.__cookedq and not self.__eof:
@@ -659,12 +458,12 @@ class Telnet( object ):
     # end def
 
     def read_very_eager( self ):
-        """Read everything that's possible without blocking in I/O (eager).
+        """
+            Read everything that's possible without blocking in I/O (eager).
 
-        Raise EOFError if connection closed and no cooked data
-        available.  Return '' if no cooked data available otherwise.
-        Don't block unless in the midst of an IAC sequence.
-
+            Raise EOFError if connection closed and no cooked data
+            available.  Return '' if no cooked data available otherwise.
+            Don't block unless in the midst of an IAC sequence.
         """
         self.process_rawq()
         while not self.__eof and self.sock_avail():
@@ -675,12 +474,8 @@ class Telnet( object ):
     # end def
 
     def read_eager( self ):
-<<<<<<< HEAD
         """
             Read readily available data.
-=======
-        """Read readily available data.
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Raise EOFError if connection closed and no cooked data
             available.  Return '' if no cooked data available otherwise.
@@ -696,28 +491,23 @@ class Telnet( object ):
     # end def
 
     def read_lazy( self ):
-        """Process and return data that's already in the queues (lazy).
+        """
+            Process and return data that's already in the queues (lazy).
 
-        Raise EOFError if connection closed and no data available.
-        Return '' if no cooked data available otherwise.  Don't block
-        unless in the midst of an IAC sequence.
-
+            Raise EOFError if connection closed and no data available.
+            Return '' if no cooked data available otherwise.  Don't block
+            unless in the midst of an IAC sequence.
         """
         self.process_rawq()
         return self.read_very_lazy()
     # end def
 
     def read_very_lazy( self ):
-<<<<<<< HEAD
         """
             Return any data available in the cooked queue (very lazy).
-=======
-        """Return any data available in the cooked queue (very lazy).
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Raise EOFError if connection closed and no data available.
             Return '' if no cooked data available otherwise.  Don't block.
-
         """
         buf = self.__cookedq
         self.__cookedq = ''
@@ -728,18 +518,18 @@ class Telnet( object ):
             Here the TERMINAL implementation must be called.
         """
         if self.__terminalObj is not None:
-            buf = self.__terminalObj.Receive( buf )
+            buf = self.__terminalObj.OnReceive( buf )
         # end if
         return buf
     # end def
 
     def read_sb_data( self ):
-        """Return any data available in the SB ... SE queue.
+        """
+            Return any data available in the SB ... SE queue.
 
-        Return '' if no SB ... SE available. Should only be called
-        after seeing a SB or SE command. When a new SB command is
-        found, old unread SB data will be discarded. Don't block.
-
+            Return '' if no SB ... SE available. Should only be called
+            after seeing a SB or SE command. When a new SB command is
+            found, old unread SB data will be discarded. Don't block.
         """
         buf = self.__sbdataq
         self.__sbdataq = ''
@@ -747,19 +537,11 @@ class Telnet( object ):
     # end def
 
     def process_rawq( self ):
-<<<<<<< HEAD
         """
             Transfer from raw queue to cooked queue.
 
             Set self.__eof when connection is closed.  Don't block unless in
             the midst of an IAC sequence.
-=======
-        """Transfer from raw queue to cooked queue.
-
-        Set self.__eof when connection is closed.  Don't block unless in
-        the midst of an IAC sequence.
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
-
         """
         buf = ['', '']
         try:
@@ -849,16 +631,11 @@ class Telnet( object ):
     # end def
 
     def rawq_getchar( self ):
-<<<<<<< HEAD
         """
             Get next char from raw queue.
-=======
-        """Get next char from raw queue.
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Block if no data is immediately available.  Raise EOFError
             when connection is closed.
-
         """
         if not self.__rawq:
             self.fill_rawq()
@@ -876,15 +653,8 @@ class Telnet( object ):
     # end def
 
     def fill_rawq( self ):
-<<<<<<< HEAD
         """
             Fill raw queue from exactly one recv() system call.
-=======
-        """Fill raw queue from exactly one recv() system call.
-
-        Block if no data is immediately available.  Set self.__eof when
-        connection is closed.
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Block if no data is immediately available.  Set self.__eof when
             connection is closed.
@@ -903,16 +673,25 @@ class Telnet( object ):
     # end def
 
     def sock_avail( self ):
-        """Test whether data is available on the socket."""
+        """
+            Test whether data is available on the socket.
+        """
         return select.select( [ self ], [], [], 0 ) == ( [ self ], [], [] )
     # end def
 
     def interact( self ):
-        """Interaction function, emulates a very dumb telnet client."""
+        """
+            Interaction function, emulates a very dumb telnet client.
+        """
         if sys.platform == "win32":
             self.win32_interact()
             return
         # end if
+        self.unix_interact()
+        return
+    # end def
+
+    def unix_interact( self ):
         while 1:
             rfd, wfd, xfd = select.select( [ self, sys.stdin ], [], [] )
             if self in rfd:
@@ -949,7 +728,6 @@ class Telnet( object ):
         return
     # end def
 
-<<<<<<< HEAD
     def quit( self ):
         if self.reader.is_alive():
             self.reader.quit()
@@ -962,7 +740,7 @@ class Telnet( object ):
 
     def win32_interact( self ):
         """
-            Win32 - Multithreaded version of interact().
+            Win32 - Multi threaded WIN32 version of interact().
         """
         self.reader     = Win32readHostThread( self )
         self.console    = Win32stdioThread( self )
@@ -971,62 +749,30 @@ class Telnet( object ):
         # Wait for all threads to complete
         self.reader.join()
         self.console.join()
-=======
-    def mt_interact( self ):
-        """Multithreaded version of interact()."""
-        import thread
-        thread.start_new_thread( self.listener, () )
-        while 1:
-            line = sys.stdin.readline()
-            if not line:
-                break
-            # end if
-            self.write( line )
-        # end while
-        return
-    # end def
-
-    def listener( self ):
-        """Helper for mt_interact() -- this executes in the other thread."""
-        while 1:
-            try:
-                data = self.read_eager()
-            except EOFError:
-                print '*** Connection closed by remote host ***'
-                log.info( '*** Connection closed by remote host ***' )
-                return
-            # end try
-            if data:
-                sys.stdout.write( data )
-            else:
-                sys.stdout.flush()
-            # end if
-        # end while
->>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         return
     # end def
 
     def expect( self, list, timeout = None ):
-        """Read until one from a list of a regular expressions matches.
+        """
+            Read until one from a list of a regular expressions matches.
 
-        The first argument is a list of regular expressions, either
-        compiled (re.RegexObject instances) or uncompiled (strings).
-        The optional second argument is a timeout, in seconds; default
-        is no timeout.
+            The first argument is a list of regular expressions, either
+            compiled (re.RegexObject instances) or uncompiled (strings).
+            The optional second argument is a timeout, in seconds; default
+            is no timeout.
 
-        Return a tuple of three items: the index in the list of the
-        first regular expression that matches; the match object
-        returned; and the text read up till and including the match.
+            Return a tuple of three items: the index in the list of the
+            first regular expression that matches; the match object
+            returned; and the text read up till and including the match.
 
-        If EOF is read and no text was read, raise EOFError.
-        Otherwise, when nothing matches, return (-1, None, text) where
-        text is the text received so far (may be the empty string if a
-        timeout happened).
+            If EOF is read and no text was read, raise EOFError.
+            Otherwise, when nothing matches, return (-1, None, text) where
+            text is the text received so far (may be the empty string if a
+            timeout happened).
 
-        If a regular expression ends with a greedy match (e.g. '.*')
-        or if more than one expression can match the same input, the
-        results are undeterministic, and may depend on the I/O timing.
-
+            If a regular expression ends with a greedy match (e.g. '.*')
+            or if more than one expression can match the same input, the
+            results are undeterministic, and may depend on the I/O timing.
         """
         if self.__has_poll:
             return self._expect_with_poll( list, timeout )
@@ -1035,9 +781,10 @@ class Telnet( object ):
     # end def
 
     def _expect_with_poll( self, expect_list, timeout = None ):
-        """Read until one from a list of a regular expressions matches.
+        """
+            Read until one from a list of a regular expressions matches.
 
-        This method uses select.poll() to implement the timeout.
+            This method uses select.poll() to implement the timeout.
         """
         re = None
         expect_list = expect_list[ : ]
@@ -1117,9 +864,10 @@ class Telnet( object ):
     # end def
 
     def _expect_with_select( self, list, timeout = None ):
-        """Read until one from a list of a regular expressions matches.
+        """
+            Read until one from a list of a regular expressions matches.
 
-        The timeout is implemented using select.select().
+            The timeout is implemented using select.select().
         """
         re = None
         list = list[:]
@@ -1168,3 +916,4 @@ class Telnet( object ):
         return ( -1, None, text )
     # end def
 # end class
+

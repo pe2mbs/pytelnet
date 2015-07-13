@@ -157,7 +157,6 @@ def TelnetConsole():
     if username is not None:
         tn.setUserPassword( username, password )
     # end if
-    print( terminal )
     if terminal is not None:
         tn.Terminal = terminal
         tn.setTerminal( terminal )

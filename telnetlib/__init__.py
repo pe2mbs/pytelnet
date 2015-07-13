@@ -20,6 +20,8 @@
     his basic implementation is heavily extended to make a complete library.
 
 """
+import logging
+
 # Telnet protocol characters (don't change)
 IAC                 = chr( 255 )    # 0xFF  - Interpret As Command
 DONT                = chr( 254 )    # 0xFE
@@ -101,3 +103,31 @@ SSPI_LOGON          = chr( 139 )    # TELOPT SSPI LOGON
 PRAGMA_HEARTBEAT    = chr( 140 )    # TELOPT PRAGMA HEARTBEAT
 EXOPL               = chr( 255 )    # Extended-Options-List
 NOOPT               = chr( 0 )
+
+def IAC_Command( cmd ):
+    Command = { DONT:   'DONT',
+                DO:     'DO',
+                WONT:   'WONT',
+                WILL:   'WILL',
+                SB:     'SB',
+                GA:     'GA',
+                EL:     'EL',
+                EC:     'EC',
+                AYT:    'AYT',
+                AO:     'AO',
+                IP:     'IP',
+                BRK:    'BRK',
+                DM:     'DM',
+                NOP:    'NOP',
+                SE:     'SE' }
+    # log.debug( "IAC_Command: %i - %X - %s" % ( ord( cmd ), ord( cmd ), cmd ) )
+    try:
+        return "%s(0x%02X)" % ( Command[ cmd ], ord( cmd ) )
+    except Exception, exc:
+        logging.getLogger().error( exc )
+    return "%d(0x%02X)" % ( ord( cmd ), ord( cmd ) )
+# end def
+
+class TelnetConnectionClosed( Exception ):
+    pass
+# end class
