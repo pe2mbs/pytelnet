@@ -34,6 +34,7 @@ from telnetlib import *
 from telnetlib.option.authentication import TelnetOptionAuthentication
 from telnetlib.option.localecho import TelnetOptionLocalEcho
 from telnetlib.option import IAC_Option
+<<<<<<< HEAD
 import threading
 
 class Win32stdioThread( threading.Thread ):
@@ -104,6 +105,8 @@ class Win32readHostThread( threading.Thread ):
         return
     # end def
 # end class
+=======
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
 __all__ = [ "Telnet" ]
 """
@@ -270,6 +273,7 @@ class Telnet( object ):
         With a hostname argument, it connects the instance; port number
         and timeout are optional.
         """
+<<<<<<< HEAD
         # Needed for 6530 terminal emulation
         self.__translateLF2CRLF         = False
         # Standard variable
@@ -295,6 +299,28 @@ class Telnet( object ):
         self.__options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
         # self.__options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
         Terminal                        = terminal
+=======
+        self.__host                   = host
+        self.__port                   = port
+        self.__timeout                = timeout
+        self._sock                    = None
+        self.__rawq                   = ''
+        self.__irawq                  = 0
+        self.__cookedq                = ''
+        self.__eof                    = 0
+        self.__iacseq                 = ''        # Buffer for IAC sequence.
+        self.__sb                     = 0         # flag for SB and SE sequence.
+        self.__sbdataq                = ''
+        self.__has_poll               = hasattr( select, 'poll' )
+        self.__username               = None
+        self.__password               = None
+        self.__terminal               = None
+        self.__options                = [ None ] * 256
+        self.__options[ ord( ECHO ) ] = TelnetOptionLocalEcho()
+        self.__options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
+        # self.__options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
+
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         if host is not None:
             self.open( host, port, timeout )
         # end if
@@ -307,6 +333,7 @@ class Telnet( object ):
         return
     # end def
 
+<<<<<<< HEAD
     def getTranslateLF2CRLF( self ):
         return self.__translateLF2CRLF
     # end def
@@ -329,6 +356,19 @@ class Telnet( object ):
         return
     # end def
 
+=======
+    @property
+    def Username( self ):
+        return self.__username
+    # end def
+
+    @Username.setter
+    def Username( self, value ):
+        self.__username = value
+        return
+    # end def
+
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     @property
     def Password( self ):
         return self.__password
@@ -340,6 +380,7 @@ class Telnet( object ):
         return
     # end def
 
+<<<<<<< HEAD
     def getTerminal( self ):
         return self.__terminal
     # end def
@@ -356,6 +397,19 @@ class Telnet( object ):
 
     Terminal = property( getTerminal, setTerminal )
 
+=======
+    @property
+    def Terminal( self ):
+        return self.__terminal
+    # end def
+
+    @Terminal.setter
+    def Terminal( self, terminal ):
+        self.__terminal = terminal
+        return
+    # end def
+
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     def Option( self, option, Object ):
         self.__options[ option ] = Object
         return
@@ -369,7 +423,14 @@ class Telnet( object ):
 
         Don't try to reopen an already connected instance.
         """
+<<<<<<< HEAD
         self.setHost( host, port, timeout )
+=======
+        self.__eof      = 0
+        self.__host     = host
+        self.__port     = port
+        self.__timeout  = timeout
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         self._sock      = socket.create_connection( ( self.__host, self.__port ), self.__timeout )
         return
     # end def
@@ -380,6 +441,7 @@ class Telnet( object ):
         return
     # end def
 
+<<<<<<< HEAD
     def setHost( self, host, port, timeout ):
         self.__eof      = 0
         self.__host     = host
@@ -388,6 +450,8 @@ class Telnet( object ):
         return
     # end def
 
+=======
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
     @property
     def Host( self ):
         return self.__host
@@ -400,12 +464,17 @@ class Telnet( object ):
 
     def close(self):
         """Close the connection."""
+<<<<<<< HEAD
         if self._sslsock:
             self._sslsock.close()
         else:
             if self._sock and self._sock:
                 self._sock.close()
             # end if
+=======
+        if self._sock:
+            self._sock.close()
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         # end if
         self._sock = 0
         self.__eof = 1
@@ -606,8 +675,12 @@ class Telnet( object ):
     # end def
 
     def read_eager( self ):
+<<<<<<< HEAD
         """
             Read readily available data.
+=======
+        """Read readily available data.
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Raise EOFError if connection closed and no cooked data
             available.  Return '' if no cooked data available otherwise.
@@ -635,8 +708,12 @@ class Telnet( object ):
     # end def
 
     def read_very_lazy( self ):
+<<<<<<< HEAD
         """
             Return any data available in the cooked queue (very lazy).
+=======
+        """Return any data available in the cooked queue (very lazy).
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Raise EOFError if connection closed and no data available.
             Return '' if no cooked data available otherwise.  Don't block.
@@ -670,11 +747,18 @@ class Telnet( object ):
     # end def
 
     def process_rawq( self ):
+<<<<<<< HEAD
         """
             Transfer from raw queue to cooked queue.
 
             Set self.__eof when connection is closed.  Don't block unless in
             the midst of an IAC sequence.
+=======
+        """Transfer from raw queue to cooked queue.
+
+        Set self.__eof when connection is closed.  Don't block unless in
+        the midst of an IAC sequence.
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
         """
         buf = ['', '']
@@ -765,8 +849,12 @@ class Telnet( object ):
     # end def
 
     def rawq_getchar( self ):
+<<<<<<< HEAD
         """
             Get next char from raw queue.
+=======
+        """Get next char from raw queue.
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Block if no data is immediately available.  Raise EOFError
             when connection is closed.
@@ -788,8 +876,15 @@ class Telnet( object ):
     # end def
 
     def fill_rawq( self ):
+<<<<<<< HEAD
         """
             Fill raw queue from exactly one recv() system call.
+=======
+        """Fill raw queue from exactly one recv() system call.
+
+        Block if no data is immediately available.  Set self.__eof when
+        connection is closed.
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
 
             Block if no data is immediately available.  Set self.__eof when
             connection is closed.
@@ -854,6 +949,7 @@ class Telnet( object ):
         return
     # end def
 
+<<<<<<< HEAD
     def quit( self ):
         if self.reader.is_alive():
             self.reader.quit()
@@ -875,6 +971,38 @@ class Telnet( object ):
         # Wait for all threads to complete
         self.reader.join()
         self.console.join()
+=======
+    def mt_interact( self ):
+        """Multithreaded version of interact()."""
+        import thread
+        thread.start_new_thread( self.listener, () )
+        while 1:
+            line = sys.stdin.readline()
+            if not line:
+                break
+            # end if
+            self.write( line )
+        # end while
+        return
+    # end def
+
+    def listener( self ):
+        """Helper for mt_interact() -- this executes in the other thread."""
+        while 1:
+            try:
+                data = self.read_eager()
+            except EOFError:
+                print '*** Connection closed by remote host ***'
+                log.info( '*** Connection closed by remote host ***' )
+                return
+            # end try
+            if data:
+                sys.stdout.write( data )
+            else:
+                sys.stdout.flush()
+            # end if
+        # end while
+>>>>>>> fd66a9e90d72d541a7a95c77875d58abdec1452a
         return
     # end def
 
