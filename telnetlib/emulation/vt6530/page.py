@@ -1,4 +1,4 @@
-from telnetlib.emulation.cursor import Cursor
+from telnetlib.emulation.vt6530.cursor import Cursor
 from telnetlib.setbits          import SetBits
 
 MASK_CHAR           = 0xFF
@@ -83,7 +83,7 @@ class PageCell( object ):
 
 
     def Get( self ):
-        return self.__ch;
+        return self.__ch
     # end def
 
     def getAttr( self ):
@@ -111,7 +111,7 @@ class PageCell( object ):
     # end def
 
     def GetAttributes( self ):
-        return self.__attribs.getInterger() << 8
+        return self.__attribs.getInteger() << 8
     # end def
 
     def AsInt( self ):
@@ -263,7 +263,7 @@ class PageCell( object ):
         return
     # end def
 
-    def IsMDT( self )
+    def IsMDT( self ):
         return self.__attribs.testBit( m_datMdt )
     # end def
 
@@ -287,31 +287,43 @@ class Page( object ):
         self.__chbuf            = '  '
         self.__numRows          = iNumRows
         self.__numColumns       = iNumCols
-        self.__writeAttr        = 0	# These attributes can be set and then effect
-        self.__priorAttr        = 0 # all subsequent writes.
+        self.__writeAttr        = 0         # These attributes can be set and then effect
+        self.__priorAttr        = 0         # all subsequent writes.
         self.__insertMode       = 0
         self.__cursorBlock      = False
         self.__cursorPos        = Cursor()
         self.__bufferPos        = Cursor()
         self.__cells            = [ PageCell() ] * self.__numRows * self.__numColumns
-        self.__fields           = []    # PageCell()
-        self.__unprotectFields  = []    # PageCell()
+        self.__fields           = []        # PageCell()
+        self.__unprotectFields  = []        # PageCell()
 
         return
     # end def
+
+    def getCursorPos( self ):
+        return self.__cursorPos
+    # end def
+
+    CursorPos = property( getCursorPos )
+
+    def getBufferPos( self ):
+        return self.__bufferPos
+    # end def
+
+    BufferPos = property( getBufferPos )
+
 
     def Init( self ):
         self.__writeAttr = VID_NORMAL
         self.__priorAttr = VID_NORMAL
         self.__cursorPos.Clear()
         self.__bufferPos.Clear()
-        self.__fields.Clear()
-        self.__unprotectFields.Clear()
-
+        self.__fields = []
+        self.__unprotectFields = []
         for x in range( 0, self.__numRows ):
             for q in range( 0, self.__numColumns ):
                 cell = self.GetCell( q, x )
-                cell.ClearTo( ' ' ) # = (int)' ' | CHAR_CELL_DIRTY | m_writeAttr;
+                cell.ClearTo( ' ' ) # = (int)' ' | CHAR_CELL_DIRTY | m_writeAttr
                 cell.SetDirty( True )
                 cell.SetNormal( True )
             # next
@@ -386,7 +398,7 @@ class Page( object ):
     # end def
 
     def InsertChar( self, PageProtocol_mode ):
-        PageProtocol_mode.InsertChar( self );
+        PageProtocol_mode.InsertChar( self )
         return
     # end def
 
@@ -432,7 +444,7 @@ class Page( object ):
 
     def ClearPage( self ):
         for r in range( 0, self.__numRows * self.__numColumns ):
-            self.__cells[ r ].Clear();
+            self.__cells[ r ].Clear()
             self.__cells[ r ].SetAttributes( self.__writeAttr | self.__priorAttr )
         # next
         return
@@ -448,37 +460,169 @@ class Page( object ):
         return
     # end def
 
-    def ClearBlock(PageProtocol *mode, int startRow, int startCol, int endRow, int endCol)
-    {
-        ASSERT_PTR(mode);
-        mode->ClearBlock(this, startRow, startCol, endRow, endCol);
-    }
+    def ClearBlock( self, PageProtocol_mode, iStartRow, iStartCol, iEndRow, iEndCol ):
+        PageProtocol_mode.ClearBlock( self, iStartRow, iStartCol, iEndRow, iEndCol )
+        return
+    # end def
 
-    void WriteField(int c);
+    def WriteField( self, c ):
+        """
+            mark the field
 
-    inline void ReadBuffer(StringBuffer *out, PageProtocol *mode, int reqMask, int forbidMask, int startRow, int startCol, int endRow, int endCol)
-    {
-        ASSERT_PTR(mode);
-        mode->ReadBuffer(out, this, reqMask, forbidMask, startRow, startCol, endRow, endCol);
-    }
+        """
+        cell = self.GetCell( self.__bufferPos )
+        self.__fields.append( cell )
+        cell.Set( c & MASK_CHAR )
+        cell.SetAttributes( (c & MASK_FIELD) | CHAR_START_FIELD | CHAR_CELL_DIRTY | self.__writeAttr | self.__priorAttr )
+        if cell.IsUnprotect():
+            self.__unprotectFields.append( cell )
+        # end if
+        # The field start char is not updatable.  For unprotect fields, the char to the
+        # right is the first updatable char.
+        cell.SetUnprotect( False )
 
-    void ResetMDTs();
+        self.__bufferPos.Column += 1
+        self.__bufferPos.AdjustCol()
 
-    void GetStartFieldASCII(StringBuffer *);
+        # detect any previous field on the line and extend
+        # its attributes upto this one
+        for col in range( self.__bufferPos.Column, self.__numColumns ):
+            if self.GetCell( col, self.__bufferPos.Row ).IsStartField():
+                return
+            # end if
+            self.GetCell( col, self.__bufferPos.Row ).SetAttributes( (c & MASK_FIELD) | CHAR_CELL_DIRTY | self.__writeAttr | self.__priorAttr )
+        # next
+        for y in range( self.__bufferPos.Row + 1, self.__numRows ):
+            for x in range( 0, self.__numColumns ):
+                cell = self.GetCell( x, y )
+                if cell.IsStartField():
+                    return
+                # end  def
+                cell.SetAttributes( (c & MASK_FIELD) | CHAR_CELL_DIRTY | self.__writeAttr | self.__priorAttr )
+            # next
+        # next
+        return
+    # end def
 
-    /*void paint(PaintSurface *ps, char *statusLine);*/
+    def ReadBuffer( self, StringBuffer_out, PageProtocol_mode, iReqMask, iForbidMask, iStartRow, iStartCol, iEndRow, iEndCol ):
+        PageProtocol_mode.ReadBuffer( StringBuffer_out, self, iReqMask, iForbidMask, iStartRow, iStartCol, iEndRow, iEndCol )
+        return
+    # end def
 
-    void ForceDirty();
+    def ResetMDTs( self ):
+        for r in range( 0, self.__numRows * self.__numColumns ):
+            self.__cells[ r ].SetMDT( False )
+        # next
+    # end def
 
-    void ScrollPageUp();
+    def GetStartFieldASCII( self, StringBuffer_buf ):
+        for r in range( 0, self.__numRows ):
+            for c in range( 0, self.__numColumns ):
+                c2 = c + 1
+                r2 = r
+                if c2 >= self.__numColumns:
+                    c2 = 0
+                    r2 += 1
+                    if r2 >= self.__numRows:
+                        r2 = 0
+                    # end if
+                # end if
+                if self.GetCell( c, r ).IsStartField() and self.GetCell( c2, r2 ).IsUnprotect():
+                    StringBuffer_buf.append( chr(r + 0x20 ) )
+                    StringBuffer_buf.append( chr(c + 0x21 ) )
+                    return
+                # end if
+            # next
+        # next
+        StringBuffer_buf.append( "  " )
+        # self.paint( PaintSurface *ps, statusLine )/
+        return
+    # end def
 
-    int ScanForNextField(int c, int r, int inc);
+    def ForceDirty( self ):
+        for r in range( 0, self.__numRows * self.__numColumns ):
+            self.__cells[ r ].SetDirty( True )
+        # next
+        return
+    # end def
 
-    int ScanForUnprotectField(int c, int r, int inc);
+    def ScrollPageUp( self ):
+        for r in range( 0, self.__numRows - 1 ):
+            for c in range( 0, self.__numColumns ):
+                self.GetCell( c, r ).Set( self.GetCell( c, r + 1 ) )
+            # next
+        # next
+        for c in range( 0, self.__numColumns ):
+            self.GetCell( c, self.__numRows - 1 ).Set( ' ' )
+            self.GetCell( c, self.__numRows - 1 ).SetAttributes( self.__writeAttr | self.__priorAttr )
+        # next
+        return
+    # end def
 
-    inline int GetFieldCount() { return m_fields.Count(); }
-    inline int GetUnprotectFieldCount() { return m_unprotectFields.Count(); }
-    inline PageCell *GetFieldStart(int x) { return (x >= m_fields.Count()) ? NULL : m_fields.ElementAt(x); }
-    inline PageCell *GetUnprotectFieldStart(int x) { return (x >= m_unprotectFields.Count()) ? NULL : m_unprotectFields.ElementAt(x); }
+    def ScanForNextField( self, c, r, inc ):
+        if inc > 0:
+            for x in range( c, self.__numColumns ):
+                if self.GetCell( x, r ).IsStartField():
+                    return x
+                # end if
+            # next
+        else:
+            if c == 0:
+                c = self.__numColumns - 1
+                if r == 0:
+                    r = self.__numRows - 1
+                else:
+                    r -= 1
+                # end if
+            # end if
+            for x in range( c + 1, 0 ):
+                if self.GetCell( x - 1, r ).IsStartField():
+                    return x
+                # end if
+            # next
+        # end if
+	    return -1
+    # end def
 
+    def ScanForUnprotectField( self, c, r, inc ):
+        if inc > 0:
+            for x in range( c, self.__numColumns ):
+                if self.GetCell( x, r ).IsUnprotect():
+                    return x
+                # enx if
+            # next
+        else:
+            if c == 0:
+                c = self.__numColumns - 1
+                if r == 0:
+                    r = self.__numRows - 1
+                else:
+                    r -= 1
+                # end if
+            # end if
+            for x in range( c, 0 ):
+                if self.GetCell( x - 1, r ).IsUnprotect():
+                    return x
+                # end if
+            # next
+        # end if
+        return -1
+    # end def
+
+    def GetFieldCount( self ):
+        return len( self.__fields )
+    # end def
+
+    def GetUnprotectFieldCount( self ):
+        return len( self.__unprotectFields )
+    # end def
+
+    def GetFieldStart( self, x ):
+        return None if x >= len( self.__fields ) else self.__fields.ElementAt( x )
+    # end def
+
+    def GetUnprotectFieldStart( self, x ):
+        return None if x >= len( self.__unprotectFields ) else self.__unprotectFields.ElementAt( x )
+    # end def
 # end class
+

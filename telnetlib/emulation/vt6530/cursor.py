@@ -1,6 +1,6 @@
 
 class Cursor( object ):
-    def __init__( self, rows, cols ):
+    def __init__( self, rows = 0, cols = 0 ):
         self.__row          = 0
         self.__column       = 0
         self.__numColumns   = cols
@@ -33,6 +33,7 @@ class Cursor( object ):
     # end def
 
     Col = property( getCol, setCol )
+    Column = property( getCol, setCol )
 
 
     def MaxRows( self ):
