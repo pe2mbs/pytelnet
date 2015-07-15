@@ -1,25 +1,34 @@
 
 class TerminalForeColors:
-    BLACK = AnsiTerm::FORE_BLACK,
-    RED = AnsiTerm::FORE_RED,
-    GREEN = AnsiTerm::FORE_GREEN,
-    YELLOW = AnsiTerm::FORE_YELLOW,
-    BLUE = AnsiTerm::FORE_BLUE,
-    MAGENTA = AnsiTerm::FORE_MAG,
-    CYAN = AnsiTerm::FORE_CYAN,
-    GREY = AnsiTerm::FORE_GREY
+    BLACK               = 30
+    RED                 = 31
+    GREEN               = 32
+    YELLOW              = 33
+    BLUE                = 34
+    MAGENTA             = 35
+    CYAN                = 36
+    GREY                = 37
 # end class
 
 class TerminalBackColors:
-    BLACK = AnsiTerm::BACK_BLACK,
-    RED = AnsiTerm::BACK_RED,
-    GREEN = AnsiTerm::BACK_GREEN,
-    YELLOW = AnsiTerm::BACK_YELLOW,
-    BLUE = AnsiTerm::BACK_BLUE,
-    MAGENTA = AnsiTerm::BACK_MAG,
-    CYAN = AnsiTerm::BACK_CYAN,
-    GREY = AnsiTerm::BACK_GREY
+    BLACK               = 40
+    RED                 = 41
+    GREEN               = 42
+    YELLOW              = 43
+    BLUE                = 44
+    MAGENTA             = 45
+    CYAN                = 46
+    GREY                = 47
 # end class
+
+class TerminalTextAttribute:
+    TEXTATRR_OFF        = 0 	#	All attributes off
+    EXTATRR_BOLD        = 1	    #	Bold on
+    TEXTATRR_DIM        = 2	    #	Dim
+    TEXTATRR_UNDERSCORE = 4     #   Underscore (on monochrome display adapter only)
+    TEXTATRR_BLINK      = 5	    #   Blink on
+    TEXTATRR_REV        = 7	    #   Reverse video on
+    TEXTATRR_INVIS      = 8		#   Concealed on
 
 class Color( object ):
     _black      = (0xFF <<24) | (0x00 << 16) | (0x00 << 8) | (0x00)
@@ -97,103 +106,49 @@ class Color( object ):
     # end def
 
     def AsTerminalForeColor( self ):
-        AnsiTerm::TermForeColor rettermcolor;
-        int64 retdiff = 0xFFFFFFFFL;
-        int diff = 0;
-
-        int64 argb = UIntToLongNoSignExt(AsRGBA32());
-
-        if ( (diff = abs((int)(argb - m_black))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::BLACK;
-        }
-        if ( (diff = abs((int)(argb - m_red))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::RED;
-        }
-        if ( (diff = abs((int)(argb - m_green))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::GREEN;
-        }
-        if ( (diff = abs((int)(argb - m_yellow))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::YELLOW;
-        }
-        if ( (diff = abs((int)(argb - m_blue))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::BLUE;
-        }
-        if ( (diff = abs((int)(argb - m_magenta))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::MAGENTA;
-        }
-        if ( (diff = abs((int)(argb - m_cyan))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::CYAN;
-        }
-        if ( (diff = abs((int)(argb - m_grey))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermForeColor)TerminalForeColors::GREY;
-        }
-        return rettermcolor;
+        colorList = [   ( self._black,      TerminalForeColors.BLACK ),
+                        ( self._red,        TerminalForeColors.RED ),
+                        ( self._green,      TerminalForeColors.GREEN ),
+                        ( self._yellow,     TerminalForeColors.YELLOW ),
+                        ( self._blue,       TerminalForeColors.BLUE ),
+                        ( self._magenta,    TerminalForeColors.MAGENTA ),
+                        ( self._cyan,       TerminalForeColors.CYAN ),
+                        ( self._grey,       TerminalForeColors.GREY ) ]
+        rettermcolor    = 0
+        retdiff         = 0xFFFFFFFFL
+        diff            = 0
+        argb            = self._a << 24 | self._r << 16 | self._g << 8 | self._b
+        for rbgColor, TermColor in colorList:
+            diff = abs( argb - rbgColor )
+            if diff < retdiff:
+                retdiff         = diff
+                rettermcolor    = TermColor
+            # end if
+        # next
+        return rettermcolor
     # end def
 
     def AsTerminalBackColor( self ):
-        AnsiTerm::TermBackColor rettermcolor;
-        int64 retdiff = 0xFFFFFFFFL;
-        int diff = 0;
-
-        int64 argb = UIntToLongNoSignExt(AsRGBA32());
-
-        if ( (diff = abs((int)(argb - m_black))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::BLACK;
-        }
-        if ( (diff = abs((int)(argb - m_red))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::RED;
-        }
-        if ( (diff = abs((int)(argb - m_green))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::GREEN;
-        }
-        if ( (diff = abs((int)(argb - m_yellow))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::YELLOW;
-        }
-        if ( (diff = abs((int)(argb - m_blue))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::BLUE;
-        }
-        if ( (diff = abs((int)(argb - m_magenta))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::MAGENTA;
-        }
-        if ( (diff = abs((int)(argb - m_cyan))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::CYAN;
-        }
-        if ( (diff = abs((int)(argb - m_grey))) < retdiff )
-        {
-            retdiff = diff;
-            rettermcolor = (AnsiTerm::TermBackColor)TerminalBackColors::GREY;
-        }
-        return rettermcolor;
+        colorList = [   ( self._black,      TerminalBackColors.BLACK ),
+                        ( self._red,        TerminalBackColors.RED ),
+                        ( self._green,      TerminalBackColors.GREEN ),
+                        ( self._yellow,     TerminalBackColors.YELLOW ),
+                        ( self._blue,       TerminalBackColors.BLUE ),
+                        ( self._magenta,    TerminalBackColors.MAGENTA ),
+                        ( self._cyan,       TerminalBackColors.CYAN ),
+                        ( self._grey,       TerminalBackColors.GREY ) ]
+        rettermcolor    = 0
+        retdiff         = 0xFFFFFFFFL
+        diff            = 0
+        argb            = self._a << 24 | self._r << 16 | self._g << 8 | self._b
+        for rbgColor, TermColor in colorList:
+            diff = abs( argb - rbgColor )
+            if diff < retdiff:
+                retdiff         = diff
+                rettermcolor    = TermColor
+            # end if
+        # next
+        return rettermcolor
     # end def
 
     def Parse( self, str_color ):

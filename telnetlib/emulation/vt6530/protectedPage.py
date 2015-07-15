@@ -282,7 +282,7 @@ class UnprotectPage( SharedProtocol ):
                     iStartRow, iStartCol, iEndRow, iEndCol):
         for y in range( iStartRow - 1, iEndRow - 1 ):
             for x in range( iStartCol - 1, iEndCol - 1 ):
-                StringBuffer_accum += page.GetCell( x, y ).Get()
+                StringBuffer_accum += Page_page.GetCell( x, y ).Get()
             # next
             StringBuffer_accum += chr( 13 )
         # next

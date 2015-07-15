@@ -1,7 +1,9 @@
+import sys
 from telnetlib.emulation.vt6530.page            import *
 from telnetlib.emulation.vt6530.sharedProtocol  import *
 from telnetlib.emulation.vt6530.protectedPage   import *
 from telnetlib.emulation.vt6530.statusLine      import *
+from telnetlib.emulation.color                  import *
 
 class TextDisplay( object ):
     def __init__( self, pages, rows, cols ):
@@ -18,7 +20,7 @@ class TextDisplay( object ):
         self.__numColumns       = cols
         self.__ppRemote         = self.__ppconvMode
         self.__pages            = []                    # [ Page ]
-        self._Init()
+        self.Init()
         self.__writePage        = None                  # Page
         self.__displayPage      = None                  # Page
         self.__keysLocked       = False
@@ -33,30 +35,6 @@ class TextDisplay( object ):
         """
             Destructor
         """
-        return
-    # end def
-
-    def _Init( self ):
-        return
-    # end def
-
-    def WriteLocal( self, text ):
-        self.__displayPage.WriteCursorLocal( self.__ppRemote, text )
-        self.__ppRemote.ValidateCursorPos( self.__displayPage )
-        self.__requiresRepaint = True
-        return
-    # end def
-
-    def EchoDisplay( self, text ):
-        if self.__echoOn:
-            self.__displayPage.WriteCursor( self.__ppRemote, text )
-            self.__requiresRepaint = True
-            return
-        # end def
-        if text[ 0 ] == 13:
-            self.__displayPage.WriteCursor( self.__ppRemote, '\r\n' )
-            self.__requiresRepaint = True
-        # end if
         return
     # end def
 
@@ -195,7 +173,7 @@ class TextDisplay( object ):
     # end def
 
     """ 0x07
-     """
+    """
     def Bell( self ):
         # ding, ding, ding
         return
@@ -230,6 +208,22 @@ class TextDisplay( object ):
     def CarageReturn( self ):
         self.__writePage.CarageReturn( self.__ppRemote )
         self.__requiresRepaint = True
+        return
+    # end def
+
+    def CursorUp( self, value = 1 ):
+        return
+    # end def
+
+    def CursorDown( self, value = 1 ):
+        return
+    # end def
+
+    def CursorRight( self, value = 1 ):
+        return
+    # end def
+
+    def CursorLeft( self, value = 1 ):
         return
     # end def
 
@@ -968,32 +962,109 @@ class TextDisplay( object ):
         inUnprot    = False
         accum       = ''
 
-        # write the style and script
-        StringBuffer_buf += "<html>"
-        StringBuffer_buf += "<script language='javascript'>function keys(){if (event.keyCode < 112 || event.keyCode > 123) {event.returnValue=true;return;} event.cancelBubble=true; event.returnValue=false;var k = document.forms('screen')('hdnKey'); switch(event.keyCode){case 112: k.value = 'F1'; break; case 10: k.value = 'ENTER'; break;} document.forms('screen').submit();} function canxIt(){event.cancelBubble = true;event.returnValue = false;}</script>"
-        StringBuffer_buf += "<script language='javascript'>function loaded(){document.onkeydown=keys; document.onhelp=canxIt; var f = document.forms('screen')('F0'); if (f != null)f.focus();}</script>"
-        StringBuffer_buf += "<script language='javascript'>function tabcheck(field){var f = document.forms('screen')('F'+field); if (f.value.length == f.maxLength()){field++; if (document.forms('screen')('F'+field) != null){document.forms('screen')('F'+field).focus();}else{document.forms('screen')('F0').focus();}}}</script>\r\n"
-        StringBuffer_buf += "<body onload='loaded()' style='color: green; background: #3F3F3F'>\r\n"
-        StringBuffer_buf += "<style type='text/css' >"
-        StringBuffer_buf += ".normal { color: #" + fgRGB
-        StringBuffer_buf += "; background: #" + bgRGB
-        StringBuffer_buf += "; text-decoration: none}"
-        StringBuffer_buf += ".reverse { color: #" + bgRGB
-        StringBuffer_buf += "; background: #" + fgRGB
-        StringBuffer_buf += "; text-decoration: none}"
-        StringBuffer_buf += ".underline { color: #" + fgRGB
-        StringBuffer_buf += "; background: #" + bgRGB
-        StringBuffer_buf += "; text-decoration: underline} "
-        StringBuffer_buf += ".reverseunderline { color: #" + bgRGB
-        StringBuffer_buf += "; background: #" + fgRGB
-        StringBuffer_buf += "; text-decoration: underline}"
-        StringBuffer_buf += ".blink { color: #" + fgRGB
-        StringBuffer_buf += "; background: #" + bgRGB
-        StringBuffer_buf += "; text-decoration: blink}"
-        StringBuffer_buf += ".blinkreverse { color: #" + bgRGB
-        StringBuffer_buf += "; background: #" + fgRGB
-        StringBuffer_buf += "; text-decoration: blink}"
-        StringBuffer_buf += "</style>\r\n"
+        # write the script and style
+        StringBuffer_buf += """<html>"
+    <script language='javascript'>
+function keys()
+{
+    if ( event.keyCode < 112 || event.keyCode > 123 )
+    {
+        event.returnValue = true;
+        return;
+    }
+    event.cancelBubble = true;
+    event.returnValue = false;
+    var k = document.forms('screen')('hdnKey');
+    switch( event.keyCode )
+    {
+    case 112:
+        k.value = 'F1';
+        break;
+    case 10:
+        k.value = 'ENTER';
+        break;
+    }
+    document.forms('screen').submit();
+}
+
+function canxIt()
+{
+    event.cancelBubble = true;
+    event.returnValue = false;
+}
+
+function loaded()
+{
+    document.onkeydown=keys;
+    document.onhelp=canxIt;
+    var f = document.forms('screen')('F0');
+    if (f != null)
+        f.focus();
+}
+
+function tabcheck( field )
+{
+    var f = document.forms('screen')('F'+field);
+    if (f.value.length == f.maxLength())
+    {
+        field++;
+        if (document.forms('screen')('F'+field) != null)
+        {
+            document.forms('screen')('F'+field).focus();
+        }
+        else
+        {
+            document.forms('screen')('F0').focus();
+        }
+    }
+}
+    </script>
+    <body onload='loaded()' style='color: green; background: #3F3F3F'>"""
+
+        StringBuffer_buf += """
+    <style type='text/css' >"
+.normal
+{
+    color: #{fg};
+    background: #{bg};
+    text-decoration: none;
+}
+
+.reverse
+{
+    color: #{bg};
+    background: #{fg};
+    text-decoration: none;
+}
+
+.underline
+{
+    color: #{fg};
+    background: #{bg};
+    text-decoration: underline;
+}
+
+.reverseunderline
+{
+    color: #{bg};
+    background: #{fg};
+    text-decoration: underline;
+}
+
+.blink
+{
+    color: #{fg};
+    background: #{bg};
+    text-decoration: blink;
+}
+
+.blinkreverse {
+    color: #{bg};
+    background: #{fg};
+    text-decoration: blink;
+}
+        </style>""".format( fg = fgRGB, bg = bgRGB )
+
         # write the table header
         StringBuffer_buf += "<form id='screen' method='post'><input type='hidden' id='hdnKey' value='' /><table cols='80' width='100%' >"
 
@@ -1194,5 +1265,3 @@ class TextDisplay( object ):
         return ret
     # end def
 # end class
-
-

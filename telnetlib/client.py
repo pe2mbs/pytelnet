@@ -35,7 +35,8 @@ from telnetlib.option.authentication import TelnetOptionAuthentication
 from telnetlib.option.localecho import TelnetOptionLocalEcho
 from telnetlib.option import IAC_Option
 from telnetlib.win32 import Win32stdioThread, Win32readHostThread
-from telnetlib.emulation.vt6530 import VT6530
+# from telnetlib.emulation.vt6530 import VT6530
+from telnetlib.emulation.terminals import *
 
 
 __all__ = [ "Telnet" ]
@@ -129,7 +130,7 @@ class Telnet( object ):
 
     """
 
-    def __init__(self, host=None, port = 23,
+    def __init__(self, host = None, port = 23,
                  timeout=socket._GLOBAL_DEFAULT_TIMEOUT, terminal = "vt200"):
         """Constructor.
 
@@ -208,10 +209,8 @@ class Telnet( object ):
 
     def setTerminal( self, terminal ):
         log.info( "Set TERMINAL = %s" % ( terminal ) )
-        self.__terminal = terminal
-        if self.__terminal == 'vt6530':
-            self.__terminalObj      = VT6530()
-        # end if
+        self.__terminal     = terminal
+        self.__terminalObj  = getTerminalObject( terminal, self, display = None, keys = None )
         return
     # end def
 
