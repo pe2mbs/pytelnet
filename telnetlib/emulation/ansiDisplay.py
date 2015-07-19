@@ -349,6 +349,142 @@ class AnsiDisplay( object ):
 
 # end class
 
+class CursesDisplay( object ):
+    def __init__( self, screen, pages = 0, rows = 25, cols = 80 ):
+        """
+            Constructor
+        """
+        self.__numColumns   = cols
+        self.__numRows      = rows
+        self.__row          = 0
+        self.__col          = 0
+        self.__screen       = screen
+
+        return
+    # end def
+
+    def __del__( self ):
+        """
+            Destructor
+        """
+        return
+    # end def
+
+    def GetNumColumns( self ):
+        return self.__screen.getmaxyx()[ 0 ]
+    # end def
+
+    def GetNumRows( self ):
+        return self.__screen.getmaxyx()[ 1 ]
+    # end def
+
+    def EchoDisplay( self, text ):
+        for ch in text:
+            if ch != '\r':
+                self.__screen.addch( ch )
+            # end if
+        # next
+        self.__screen.refresh()
+        return
+    # end def
+
+    """ 0x07
+    """
+    def Bell( self ):
+        # ding, ding, ding
+        sys.stdout.write( "\x07\x07\x07" )
+        return
+    # end def
+
+    """ 0x08
+     """
+    def Backspace( self ):
+
+        return
+    # end def
+
+    """ 0x09
+     """
+    def Tab( self ):
+        # 0x09
+        return
+    # end def
+
+    """ 0x0A
+     """
+    def Linefeed( self ):
+        self.__screen.addch( '\n' )
+        self.__screen.refresh()
+        return
+    # end def
+
+    """ 0x0D
+     """
+    def CarageReturn( self ):
+        self.__screen.addch( '\r' )
+        self.__screen.refresh()
+        return
+    # end def
+
+    def SetCursorRowCol( self, row, col ):
+        self.__screen.setsyx( row, col )
+        return
+    # end def
+
+    def Home( self ):
+        self.__screen.setsyx( 0, 0 )
+        return
+    # end def
+
+    """ ESC F
+    """
+    def End( self ):
+        return
+    # end def
+
+    def ClearEOL( self ):
+        self.__screen.clrtoeol()
+        self.__screen.refresh()
+        return
+    # end def
+
+    def ClearEnd( self ):
+        self.__screen.clrtobot()
+        self.__screen.refresh()
+        return
+    # end def
+
+    def ClearPage( self ):
+        self.__screen.clear()
+        self.__screen.refresh()
+        return
+    # end def
+
+    def DeleteLine( self ):
+        self.__screen.deleteln()
+        self.__screen.refresh()
+        return
+    # end def
+
+    def CursorUp( self, value = 1 ):
+        return
+    # end def
+
+    def CursorDown( self, value = 1 ):
+        return
+    # end def
+
+    def CursorRight( self, value = 1 ):
+        return
+    # end def
+
+    def CursorLeft( self, value = 1 ):
+        return
+    # end def
+
+# end class
+
+
 
 if __name__ == '__main__':
     con = AnsiDisplay()

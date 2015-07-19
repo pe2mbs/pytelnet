@@ -29,6 +29,7 @@ import getopt
 import traceback
 import telnetlib.client
 import telnetlib.sslclient
+import curses
 
 VERSION = "0.1.0"
 
@@ -168,7 +169,14 @@ def TelnetConsole():
         sys.exit( -1 )
     # end def
     try:
-        tn.interact()
+        #tn.interact()
+        stdscr = curses.initscr()
+        curses.cbreak()
+        curses.noecho()
+        curses.start_color()
+        stdscr.nodelay( True )
+        stdscr.keypad( 1 )
+        tn.curses_interact( stdscr )
     except KeyboardInterrupt, exc:
         pass
     except telnetlib.client.TelnetConnectionClosed, exc:
@@ -178,6 +186,8 @@ def TelnetConsole():
         log.error( traceback.format_exc() )
     # end try
     tn.close()
+    curses.echo()
+    curses.endwin()
     return
 # end def
 

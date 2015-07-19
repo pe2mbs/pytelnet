@@ -29,6 +29,8 @@ import sys
 import socket
 import select
 import logging
+import curses
+from telnetlib.emulation.vt100 import VT100, VTxterm
 
 from telnetlib import *
 from telnetlib.option.authentication import TelnetOptionAuthentication
@@ -37,6 +39,7 @@ from telnetlib.option import IAC_Option
 from telnetlib.win32 import Win32stdioThread, Win32readHostThread
 # from telnetlib.emulation.vt6530 import VT6530
 from telnetlib.emulation.terminals import *
+
 
 
 __all__ = [ "Telnet" ]
@@ -219,6 +222,10 @@ class Telnet( object ):
     def Option( self, option, Object ):
         self.__options[ option ] = Object
         return
+    # end def
+
+    def getOption( self, option ):
+        return self.__options[ option ]
     # end def
 
     def open( self, host, port = 23, timeout = socket._GLOBAL_DEFAULT_TIMEOUT ):
@@ -687,6 +694,28 @@ class Telnet( object ):
             return
         # end if
         self.unix_interact()
+        return
+    # end def
+
+    def curses_interact( self, screen ):
+        emulation = VT100( self, screen )
+        while 1:
+            emulation.HandleKeyboard()
+            rfd, wfd, xfd = select.select( [ self ], [], [], 0 )
+            if self in rfd:
+                try:
+                    text = self.read_eager()
+                except EOFError:
+                    print '*** Connection closed by remote host ***'
+                    log.info( '*** Connection closed by remote host ***' )
+                    break
+                # end try
+                if text:
+                    # log.info( "write #1 text in interact" )
+                    emulation.OnTelnetRecv( text )
+                # end if
+            # end if
+        # end def
         return
     # end def
 
