@@ -1,6 +1,10 @@
+import sys
+import os
 import telnetlib.emulation
 import curses
 import logging
+from telnetlib.emulation.display import CursesDisplay
+
 
 VT52_CUR_UP     = ( 27, 65 )
 VT52_CUR_DOWN   = ( 27, 66 )
@@ -55,269 +59,17 @@ VT100_NUM_FP4    = ( 27, 'O', 'S' )
 
 log = logging.getLogger()
 
-def color_attr( fg, bg ):
-    return ( ( fg * ( curses.COLOR_WHITE ) + bg ) + 1 ) << 8
-# end if
 
-class CursesEmulation( object ):
-    def __init__( self, telnet, display = None ):
-        self.__display      = display
-        self.__telnet       = telnet
-        self.__fgattr       = curses.COLOR_WHITE
-        self.__bgattr       = curses.COLOR_BLACK
-        self.__attr         = curses.A_BOLD
-        display.scrollok( True )
-        self.__colorList    = [ curses.COLOR_BLACK, curses.COLOR_RED,
-                                curses.COLOR_GREEN, curses.COLOR_YELLOW,
-                                curses.COLOR_BLUE, curses.COLOR_MAGENTA,
-                                curses.COLOR_CYAN, curses.COLOR_WHITE ]
-        self.__colorNames   = [ 'BLACK', 'RED', 'GREEN', 'YELLOW', 'BLUE', 'MAGENTA', 'CYAN', 'WHITE' ]
-        cnt = 1
-        for fg in range( curses.COLOR_BLACK, curses.COLOR_WHITE ):
-            for bg in range( curses.COLOR_BLACK, curses.COLOR_WHITE ):
-                curses.init_pair( cnt, fg, bg )
-                cnt += 1
-            # next
-        # next
-        return
-    # end def
-
-    def _doAttrs( self, params ):
-        if len( params ) == 0:
-            self.__attr         = curses.A_NORMAL | curses.A_BOLD
-            self.__fgattr       = curses.COLOR_WHITE
-            self.__bgattr       = curses.COLOR_BLACK
-            log.debug( "Set default fore- and back-ground colors" )
-            return
-        # end if
-        log.debug( "ATTR.params: %s" % ( repr( params ) ) )
-        for attr in params:
-            """
-                0	Reset all attributes
-                1	Bright
-                2	Dim
-                4	Underscore
-                5	Blink
-                7	Reverse
-                8	Hidden
-
-            """
-            if attr.isdigit():
-                attr = int( attr )
-                if attr == 0:    # A_NORMAL	Normal attribute.
-                    # self.__display.attrset( curses.A_NORMAL )
-                    self.__attr     = curses.A_NORMAL | curses.A_BOLD
-                    log.debug( "set color A_NORMAL    %X" % ( self.__attr ) )
-                elif attr == 1:    # A_BOLD	Bold mode.
-                    self.__attr &= ~curses.A_DIM
-                    self.__attr |= curses.A_BOLD
-                    log.debug( "set color A_BOLD      %X" % ( self.__attr ) )
-                elif attr == 2:    # A_DIM	Dim mode.
-                    self.__attr &= ~curses.A_BOLD
-                    self.__attr |= curses.A_DIM
-                    log.debug( "set color A_DIM       %X" % ( self.__attr ) )
-                elif attr == 4:    # A_UNDERLINE	Underline mode.
-                    self.__attr |= curses.A_UNDERLINE
-                    log.debug( "set color A_UNDERLINE %X" % ( self.__attr ) )
-                elif attr == 5:    # A_BLINK	Blink mode.
-                    self.__attr |= curses.A_BLINK
-                    log.debug( "set color A_BLINK     %X" % ( self.__attr ) )
-                elif attr == 7:    # A_REVERSE	Reverse background and foreground colors.
-                    self.__attr |= curses.A_REVERSE
-                    log.debug( "set color A_REVERSE   %X" % ( self.__attr ) )
-                elif attr >= 30 and attr <= 37:
-                    """
-                        Foreground Colours
-                        30	Black
-                        31	Red
-                        32	Green
-                        33	Yellow
-                        34	Blue
-                        35	Magenta
-                        36	Cyan
-                        37	White
-
-                        39  Default
-                    """
-                    self.__fgattr = attr - 30
-                    log.debug( "set foreground color attr:%i color:%X label:%s" % ( attr, self.__fgattr, self.__colorNames[ self.__fgattr ] ) )
-                elif attr == 39:
-                    log.debug( "Set default foreground color" )
-                    self.__fgattr       = curses.COLOR_WHITE
-                    self.__attr         |= curses.A_BOLD
-                elif attr >= 40 and attr <= 47:
-                    """
-                        background Colours
-                        40	Black
-                        41	Red
-                        42	Green
-                        43	Yellow
-                        44	Blue
-                        45	Magenta
-                        46	Cyan
-                        47	White
-
-                        49  Default
-                    """
-                    self.__bgattr = attr - 40
-                    log.debug( "set background color attr:%i color:%i label:%s" % ( attr, self.__bgattr, self.__colorNames[ self.__bgattr ] ) )
-                elif attr == 49:
-                    log.debug( "Set default background color" )
-                    self.__bgattr       = curses.COLOR_BLACK
-                # end if
-            elif attr == "":
-                log.debug( "Set default fore- and back-ground colors" )
-                self.__attr         = curses.A_NORMAL | curses.A_BOLD
-                self.__bgattr       = curses.COLOR_BLACK
-                self.__fgattr       = curses.COLOR_WHITE
-            else:
-                log.debug( "unknown attr for ESC[%sm" % ( attr ) )
-        # next
-        self.__params = []
-        return
-    # end def
-
-    def _doLeds( self, params ):
-        for attr in params:
-            """
-                0   All LEDs off
-                1   LED #1 on
-                2   LED #2 on
-                3   LED #3 on
-                4   LED #4 on
-            """
-            if attr == '0':
-                for led in self.__display.Leds:
-                    led.Off()
-                # next
-            else:
-                self.__display.Leds[ ord( attr ) - 0x30 ].On()
-            # end if
-        # next
-        return
-    # end def
-
-    def HandleKeyboard( self ):
-        key = self.__display.getch()
-        if key != -1:
-            self.__fgattr   = curses.COLOR_WHITE
-            self.__bgattr   = curses.COLOR_BLACK
-            self.__attr     = curses.A_BOLD
-            self.Transmit( key )
-        # end if
-        return key
-    # end def
-
-    def Transmit( self, key ):
-        log.debug( "Transmit( %i )" % ( key ) )
-        if key >= 0x20 and key < 256:
-            self.__telnet.write( chr( key ) )
-            echo = True
-            opt = self.__telnet.getOption(1)
-            if opt is not None:
-                echo = opt.Echo
-            # end if
-            if echo:
-                self.Print( chr( key ) )
-            # end if
-        elif key == 0x0A:   # Linefeed
-            self.__telnet.write( '\r\n' )
-            self.Print( '\n' )
-        elif key == 0x0C:   # Carrage return
-            # screen.addch( cKey )
-            self.__telnet.write( '\r' )
-        elif key == 0x09:   # Tab
-            # screen.addch( cKey )
-            self.__telnet.write( '\t' )
-        # end if
-        self.__display.refresh()
-        return
-    # end def
-
-    def Print( self, pstr ):
-        try:
-            clr = color_attr( self.__fgattr, self.__bgattr )
-            log.debug( "fg:%i(%s)  bg:%i(%s)  color: %X  attr: %X  combined: %X" %
-                       ( self.__fgattr, self.__colorNames[ self.__fgattr ],
-                         self.__bgattr, self.__colorNames[ self.__bgattr ],
-                         clr, self.__attr, clr | self.__attr ) )
-            self.__display.addstr( pstr, clr | self.__attr )
-        except Exception, exc:
-            log.error( "self.__display.addstr( %s ) raises ans error: %s" % ( pstr, exc ) )
-        # end try
-        self.__display.refresh()
-        return
-    # end def
-
-    def Row( self ):
-        l, c = curses.getsyx()
-        return l
-    # end def
-
-    def Col( self ):
-        l, c = curses.getsyx()
-        return c
-    # end def
-
-    def clrtobot( self ):
-        self.__display.clrtobot()
-        return
-    # end def
-
-    def clrtoeol( self ):
-        self.__display.clrtoeol()
-        return
-    # end def
-
-    def deleteln( self ):
-        self.__display.deleteln()
-        return
-    # end def
-
-    def clear( self ):
-        self.__display.clear()
-        return
-    # end def
-
-    def cursorpos( self, l, c ):
-        self.__display.move( l, c )
-        return
-    # end def
-
-    def setcursor( self, set ):
-        return
-    # end def
-
-    def cursorup( self ):
-        self.__display.do_command( curses.KEY_UP )
-        return
-    # end def
-
-    def cursordown( self ):
-        self.__display.do_command( curses.KEY_DOWN )
-        return
-    # end def
-
-    def cursorleft( self ):
-        self.__display.do_command( curses.KEY_RIGHT )
-        return
-    # end def
-
-    def cursorright( self ):
-        self.__display.do_command( curses.KEY_LEFT )
-        return
-    # end def
-# end class
-
-class VT100( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKeyListener,
-            CursesEmulation ):
+class VT100( telnetlib.emulation.TerminalEmulation,
+             telnetlib.emulation.MappedKeyListener,
+             CursesDisplay ):
     def __init__( self, telnet, display = None, keys = None ):
-        CursesEmulation.__init__( self, telnet, display )
-        self.__telnet       = telnet
-        self.__state        = 0
-        self.__lastState    = 0
-        self.__justConnected = True
-        self.__lastLine      = ''
+        CursesDisplay.__init__( self, telnet, display )
+        self.__telnet           = telnet
+        self.__state            = 0
+        self.__lastState        = 0
+        self.__justConnected    = True
+        self.__lastLine         = ''
         return
     # end def
 
@@ -325,7 +77,7 @@ class VT100( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKe
         return
     # end def
 
-    def OnTelnetRecv( self, data ):
+    def OnReceive( self, data ):
         for cCh in data:
             iCh = ord( cCh )
             if self.__lastState != self.__state:
@@ -337,15 +89,15 @@ class VT100( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKe
                     log.debug( "ESC mode" )
                     self.__state = 27
                 elif iCh == 7:
-                    self.Print( '\x07' )
+                    self.bell()
                 elif iCh == 8:
                     self.Print( '\x08 \x08' )
                 elif iCh == 9:
                     self.Print( '\t' )
                 elif iCh == 0x0A:
-                    self.cursorpos( self.Row() + 1, self.Col() )
+                    self.newline()
                 elif iCh == 0x0C:
-                    self.cursorpos( self.Row(), 0 )
+                    self.carragereturn()
                 elif iCh == 0x0f: # Invoke G0 character set into GL. G0 is designated by a select-character-set sequence (SCS).
                     pass
                 else:
@@ -594,112 +346,29 @@ class VT100( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKe
         return
     # end def
 
-    """
-    *  The terminal has successfully connected to the host.
-    """
-    def OnTelnetConnect( self ):
-        return
-    # end def
-
-    """
-    *  The connection to the host was lost or closed.
-    """
-    def OnTelnetClose( self ):
-        return
-    # end def
-
-    """
-    *  There has been an internal error.
-    """
-    def OnTelnetError( self, message ):
-        return
-    # end def
-
-    def OnTelnetUnmappedOption( self, command, option ):
-        return
-    # end if
-
-    def OnTelnetSetWindowSize( self, minx, maxx, miny, maxy ):
-        return
-    # end if
-
-    def TelnetGetWindowSize( self ):
-        return ( 24, 80 )
-    # end if
-
-    def OnTelnetTermName( self, termname ):
-        return
-    # end if
-
-    def TelnetGetTeminalName( self ):
-        return
-    # end if
-
-    def OnTelnetStateChange( self, command, option ):
-        return
-    # end if
-
-
-    def Vt6530_OnResetLine( self ):
-        return
-    # end if
-
-    """
-    *  The host has completed rendering the screen and is now waiting for input.
-    """
-    def Vt6530_OnEnquire( self ):
-        return
-    # end if
-
-    """
-    *  Changes in the display require the container to repaint.
-    """
-    def Vt6530_OnDisplayChanged( self ):
-        return
-    # end if
-
-    """
-    *  Debuging output -- may be ignored
-    """
-    def Vt6530_OnDebug( self, message ):
-        return
-    # end if
-
-    def Vt6530_OnRecv34( self, op, params, paramLen = 0 ):
-        return
-    # end if
-
-    def Vt6530_OnTextWatch( self, txt, iCommandCode ):
-        return
-    # end if
-
     def HandleKeyboard( self ):
-        return CursesEmulation.HandleKeyboard( self )
+        return CursesDisplay.HandleKeyboard( self )
     # end def
 
     def Transmit( self, key ):
-        CursesEmulation.Transmit( self, key )
+        CursesDisplay.Transmit( self, key )
         if key == curses.KEY_UP:
-            pass
+            self.__telnet.write( VT100_CUR_UP )
         elif key == curses.KEY_DOWN:
-            pass
+            self.__telnet.write( VT100_CUR_DOWN )
         elif key == curses.KEY_LEFT:
-            pass
+            self.__telnet.write( VT100_CUR_LEFT )
         elif key == curses.KEY_RIGHT:
-            pass
-        elif key == curses.KEY_BACKSPACE:
-            pass
-        elif key == curses.KEY_BTAB:
-            pass
+            self.__telnet.write( VT100_CUR_RIGHT )
         # end if
         return
     # end def
 # end class
 
 class VTxterm( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKeyListener,
-               CursesEmulation ):
+               CursesDisplay ):
     def __init__( self, telnet, display = None, keys = None ):
-        CursesEmulation.__init__( self, telnet, display )
+        CursesDisplay.__init__( self, telnet, display )
         self.__state        = 0
         self.__lastState    = 0
         self.__justConnected= True
@@ -1048,88 +717,12 @@ class VTxterm( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.Mapped
         return
     # end def
 
-    def OnTelnetConnect( self ):
-        return
-    # end def
-
-    def OnTelnetClose( self ):
-        return
-    # end def
-
-    def OnTelnetError( self, message ):
-        return
-    # end def
-
-    def OnTelnetUnmappedOption( self, command, option ):
-        return
-    # end if
-
-    def OnTelnetSetWindowSize( self, minx, maxx, miny, maxy ):
-        return
-    # end if
-
-    def TelnetGetWindowSize( self ):
-        return ( 24, 80 )
-    # end if
-
-    def OnTelnetTermName( self, termname ):
-        return
-    # end if
-
-    def TelnetGetTeminalName( self ):
-        return
-    # end if
-
-    def OnTelnetStateChange( self, command, option ):
-        return
-    # end if
-
-    def Vt6530_OnResetLine( self ):
-        return
-    # end if
-
-    """
-    *  The host has completed rendering the screen and is now waiting for input.
-    """
-    def Vt6530_OnEnquire( self ):
-        return
-    # end if
-
-    """
-    *  Changes in the display require the container to repaint.
-    """
-    def Vt6530_OnDisplayChanged( self ):
-        return
-    # end if
-
-    """
-    *  There has been an internal error.
-    """
-    def Vt6530_OnError( self, message ):
-        return
-    # end if
-
-    """
-    *  Debuging output -- may be ignored
-    """
-    def Vt6530_OnDebug( self, message ):
-        return
-    # end if
-
-    def Vt6530_OnRecv34( self, op, params, paramLen = 0 ):
-        return
-    # end if
-
-    def Vt6530_OnTextWatch( self, txt, iCommandCode ):
-        return
-    # end if
-
     def HandleKeyboard( self ):
-        return CursesEmulation.HandleKeyboard( self )
+        return CursesDisplay.HandleKeyboard( self )
     # end def
 
     def Transmit( self, key ):
-        CursesEmulation.Transmit( self, key )
+        CursesDisplay.Transmit( self, key )
         if key == curses.KEY_UP:
             pass
         elif key == curses.KEY_DOWN:

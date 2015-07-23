@@ -1,3 +1,5 @@
+import logging
+
 class MappedKeyListener( object ):
     def KeyMappedKey( self, s ):
         return
@@ -26,6 +28,7 @@ class MappedKeyListener( object ):
 
 class TerminalEmulation( object ):
     def __init__( self, telnet, display = None, keys = None ):
+        self.__log = logging.getLogger()
         return
     # end def
 
@@ -33,97 +36,87 @@ class TerminalEmulation( object ):
         return
     # end def
 
-    def OnTelnetRecv( self, data ):
+    def OnRecveive( self, data ):
         return
     # end def
-
-    def OnTelnetConnect( self ):
-        return
-    # end def
-
-    def OnTelnetClose( self ):
-        return
-    # end def
-
-    def OnTelnetError( self, message ):
-        return
-    # end def
-
-    def OnTelnetUnmappedOption( self, command, option ):
-        return
-    # end if
-
-    def OnTelnetSetWindowSize( self, minx, maxx, miny, maxy ):
-        return
-    # end if
-
-    def TelnetGetWindowSize( self ):
-        return ( 24, 80 )
-    # end if
-
-    def OnTelnetTermName( self, termname ):
-        return
-    # end if
-
-    def TelnetGetTeminalName( self ):
-        return
-    # end if
-
-    def OnTelnetStateChange( self, command, option ):
-        return
-    # end if
 
     """
     *  The terminal has successfully connected to the host.
     """
-    def Vt6530_OnConnect( self ):
+    def OnConnect( self ):
         return
-    # end if
-    
+    # end def
+
     """
     *  The connection to the host was lost or closed.
     """
-    def Vt6530_OnDisconnect( self ):
+    def OnClose( self ):
+        return
+    # end def
+
+    """
+    *  There has been an internal error.
+    """
+    def OnError( self, message ):
+        self.__log.error( message )
+        return
+    # end def
+
+    def OnUnmappedOption( self, command, option ):
         return
     # end if
 
-    def Vt6530_OnResetLine( self ):
+    def OnSetWindowSize( self, minx, maxx, miny, maxy ):
+        return
+    # end if
+
+    def GetWindowSize( self ):
+        return ( 24, 80 )
+    # end if
+
+    def OnTermName( self, termname ):
+        return
+    # end if
+
+    def GetTeminalName( self ):
+        return
+    # end if
+
+    def OnStateChange( self, command, option ):
+        return
+    # end if
+
+    def OnResetLine( self ):
         return
     # end if
 
     """
     *  The host has completed rendering the screen and is now waiting for input.
     """
-    def Vt6530_OnEnquire( self ):
+    def OnEnquire( self ):
         return
     # end if
 
     """
     *  Changes in the display require the container to repaint.
     """
-    def Vt6530_OnDisplayChanged( self ):
-        return
-    # end if
-
-    """
-    *  There has been an internal error.
-    """
-    def Vt6530_OnError( self, message ):
+    def OnDisplayChanged( self ):
         return
     # end if
 
     """
     *  Debuging output -- may be ignored
     """
-    def Vt6530_OnDebug( self, message ):
+    def OnDebug( self, message ):
+        self.__log.debug( message )
         return
     # end if
 
-    def Vt6530_OnRecv34( self, op, params, paramLen = 0 ):
+    def OnRecv34( self, op, params, paramLen = 0 ):
         return
     # end if
 
-    def Vt6530_OnTextWatch( self, txt, iCommandCode ):
+    def OnTextWatch( self, txt, iCommandCode ):
         return
     # end if
 

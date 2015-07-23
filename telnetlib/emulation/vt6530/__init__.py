@@ -1,8 +1,10 @@
+import curses
 import telnetlib.emulation
 from telnetlib.emulation.vt6530.page  import Page
 from telnetlib.emulation.vt6530.keys  import *
 from telnetlib.emulation.vt6530.textDisplay import TextDisplay
 import logging
+from telnetlib.emulation.display import CursesDisplay
 
 CHAR_ESC    = 27
 CHAR_BELL   = 7
@@ -13,11 +15,19 @@ CHAR_CR     = 13
 
 SIZE_ELEM   = 100
 
+TN6530_8_CUR_UP     = ( 0, )
+TN6530_8_CUR_DOWN   = ( 0, )
+TN6530_8_CUR_RIGHT  = ( 0, )
+TN6530_8_CUR_LEFT   = ( 0, )
+
 log = logging.getLogger()
 
-class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedKeyListener ):
+class TN6530_8( telnetlib.emulation.TerminalEmulation,
+                telnetlib.emulation.MappedKeyListener,
+                CursesDisplay ):
     def __init__( self, telnet, display = None, keys = None ):
         telnetlib.emulation.TerminalEmulation.__init__( self, telnet, display, keys )
+        CursesDisplay.__init__( telnet, display )
         self.__strStack     = []
         # accumulate characters for sending to the display
         self.__accum        = ''
@@ -43,32 +53,8 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
         return
     # end def
 
-    def OnTelnetConnect( self ):
-        return
-    # end def
-
-    def OnTelnetError( self, message ):
-        return
-    # end def
-
-    def OnTelnetUnmappedOption( self, command, option ):
-        return
-    # end def
-
-    def TelnetGetTeminalName( self ):
+    def GetTeminalName( self ):
         return "tn6530-8"
-    # end def
-
-    def OnTelnetSetWindowSize( self, iMinx, iMaxx, iMiny, iMaxy ):
-        return
-    # end def
-
-    def OnTelnetTermName( self, termname ):
-        return
-    # end def
-
-    def OnTelnetStateChange( self, command, option ):
-        return
     # end def
 
     def KeyMappedKey( self, key ):
@@ -111,14 +97,62 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
         return
     # end def
 
-    def Close( self ):
+    def ResetMdt( self ):
+        return
+    # end def
+
+    def GetProtectMode( self ):
+        return False
+    # end def
+
+    def GetBlockMode( self ):
+        return False
+    # end def
+
+    def PrintScreen( self ):
+        return
+    # end def
+
+    def SetTab(self):
+        return
+    # end def
+
+    def ClearTab( self ):
+        return
+    # end def
+
+    def ClearAllTabs( self ):
+        return
+    # end def
+
+    def SetKeysUnlocked( self ):
+        return
+    # end def
+
+    def SetKeysLocked( self ):
+        return
+    # end def
+
+    def InsertChar( self ):
+        return
+    # end if
+
+    def DeleteChar( self ):
+        return
+    # end def
+
+    def SetProtectMode(self):
+        return
+    # end def
+
+    def ExitProtectMode(self):
         return
     # end def
 
     """
     *  Process incoming text from the host.
     """
-    def OnTelnetRecv( self, inp ):
+    def OnReceive( self, inp ):
         pos = 0
         dataTypeTableCount = 0
         while pos < len( inp ):
@@ -131,11 +165,11 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     continue
                 # end if
                 if len( self.__accum ) > 0:
-                    if self.__display.GetProtectMode():
-                        self.__display.WriteBuffer( self.__accum )
+                    if self.GetProtectMode():
+                        self.__display.Print( self.__accum )
                     # end if
                 else:
-                    self.__display.WriteDisplay( self.__accum )
+                    self.__display.Print( self.__accum )
                     self.__accum = ''
                 # end if
                 if iCh == 0x00:
@@ -145,26 +179,26 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 5000
                 elif iCh == 0x04:
                     # reset the line
-                    self.__display.ResetMdt()
+                    self.ResetMdt()
                     self.DispatchResetLine()
                 elif iCh == 0x05:
                     # ENQ
                     self.DispatchEnquire()
                 elif iCh == 0x07:
                     # BELL
-                    self.__display.Bell()
+                    self.__display.bell()
                 elif iCh == 0x08:
                     # Backspace
-                    self.__display.Backspace()
+                    self.__display.backspace()
                 elif iCh == 0x09:
                     # HTab
-                    self.__display.Tab()
+                    self.__display.tab()
                 elif iCh == 0x0A:
                     # NL
-                    self.__display.Linefeed()
+                    self.__display.newline()
                 elif iCh == 0x0D:
                     # CR
-                    self.__display.CarageReturn()
+                    self.__display.carragereturn()
                 elif iCh == 0x0E:
                     # shift out to G1 character set
                     log.info("G1 char set")
@@ -192,18 +226,18 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 if cCh == '0':
                     # print screen
                     self.__state = 0
-                    self.__display.PrintScreen()
+                    self.PrintScreen()
                 elif cCh == '1':
                     # Set tab at cursor location
                     self.__state = 0
-                    self.__display.SetTab()
+                    self.SetTab()
                 elif cCh == '2':
                     # Clear tab
-                    self.__display.ClearTab()
+                    self.ClearTab()
                     self.__state = 0
                 elif cCh == '3':
                     # Clear all tabs
-                    self.__display.ClearAllTabs()
+                    self.ClearAllTabs()
                     self.__state = 0
                 elif cCh == '6':
                     # Set video attributes
@@ -216,81 +250,81 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 48
                 elif cCh == '?':
                     # Read terminal configuration
-                    if self.__display.GetBlockMode():
+                    if self.GetBlockMode():
                         bp = "\1!A 2B72C 0D 0E 0F 0G 0H15I 3J 0L 0M 1N 0O 0P 0X 6S 0T 0U 1V 1W 1e 1f 0i 1h10\3\0"
                     else:
                         bp = "\1!A 2B72C 0D 0E 0F 0G 0H15I 3J 0L 0M 1N 0O 0P 0X 6S 0T 0U 1V 1W 1e 1f 0i 1h10\13"
                     # end if
-                    self.__telnet.SendRaw( bp )
+                    self.__telnet.write( bp )
                     self.__state = 0
                 elif cCh == '@':
                     # Delay one second
                     self.__state = 0
                 elif cCh == 'A':
                     # Cursor up
-                    self.__display.MoveCursorUp()
+                    self.__display.cursorup()
                     self.__state = 0
                 elif cCh == 'C':
                     # Cursor right
-                    self.__display.MoveCursorRight()
+                    self.__display.cursorright()
                     self.__state = 0
                 elif cCh == 'F':
                     # Cursor home down
-                    self.__display.End()
+                    self.__display.cursorpos( 24, 79 )
                     self.__state = 0
                 elif cCh == 'H':
                     # Cursor home
-                    self.__display.Home()
+                    self.__display.cursorpos( 0, 0 )
                     self.__state = 0
                 elif cCh == 'I':
                     # Clear memory to spaces
                     # NOTE: in protect mode, this gets a block arg
-                    if self.__display.GetProtectMode():
+                    if self.GetProtectMode():
                         self.__state = 15000
                         continue
                     # end if
-                    self.__display.ClearPage()
+                    self.__display.clear()
                     self.__state = 0
                 elif cCh == 'J':
                     # Erase to end of page/memory
-                    self.__display.ClearToEnd()
+                    self.__display.clrtobot()
                     self.__state = 0
                 elif cCh == 'K':
                     # Erase to end of line/field
-                    self.__display.ClearEOL()
+                    self.__display.clrtoeol()
                     self.__state = 0
                 elif cCh == '^':
                     # Read terminal status
-                    if self.__display.GetBlockMode():
+                    if self.GetBlockMode():
                         status = ( 1, 63, 66, 70, 67, 67, 94, 64, 3, 0, 4 )
                     else:
                         status = ( 1, 63, 67, 70, 67, 13 ) #67, 94, 64, 3, 0 )
                     # end if
-                    self.__telnet.SendRaw( status )
+                    self.__telnet.write( status )
                     self.__state = 0
                 elif cCh == '_':
                     # Read firmware revision level
-                    if self.__display.GetBlockMode():
+                    if self.GetBlockMode():
                         log.info( "Read firmware revision level" )
                     else:
                         status = ( 1, 35, 67, 48, 48, 84, 79, 67, 48, 48, 13 )
-                        self.__telnet.SendRaw( status )
+                        self.__telnet.write( status )
                     # end if
                     self.__state = 0
                 elif cCh == 'a':
                     # Read cursor address
-                    cursorPos = ( 1, '_', '!', self.__display.GetCursorRow(), self.__display.GetCursorCol(), 13 )
-                    self.__telnet.SendRaw( cursorPos )
+                    cursorPos = ( 1, '_', '!', self.__display.Row(), self.__display.Col(), 13 )
+                    self.__telnet.write( cursorPos )
                     self.__state = 0
                 elif cCh == 'b':
                     # Unlock keyboard
                     self.__keys.UnlockKeyboard()
-                    self.__display.SetKeysUnlocked()
+                    self.SetKeysUnlocked()
                     self.__state = 10000
                 elif cCh == 'c':
                     # Lock keyboard
                     self.__keys.LockKeyboard()
-                    self.__display.SetKeysLocked()
+                    self.SetKeysLocked()
                     self.__state = 0
                 elif cCh == 'd':
                     # Simulate function key
@@ -334,7 +368,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     #	display.dumpScreen(Logger.out)
                     self.__blockBuf = ''
                     self.__blockBuf = self.__display.ReadBufferUnprotectIgnoreMdt( self.__blockBuf, 0, 0, self.__display.GetNumRows() - 1, self.__display.GetNumColumns() - 1 )
-                    self.__telnet.SendRaw( self.__blockBuf )
+                    self.__telnet.write( self.__blockBuf )
                     self.__blockBuf = ''
                     self.__state    = 0
                 elif cCh == '=':
@@ -342,13 +376,13 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 67
                 elif cCh == '>':
                     # Reset modified data tags
-                    self.__display.ResetMdt()
+                    self.ResetMdt()
                     self.__state = 0
                 elif cCh == 'L':
-                    self.__display.LineDown()
+                    self.__display.cursordown()
                     self.__state = 0
                 elif cCh == 'M':
-                    self.__display.DeleteLine()
+                    self.__display.deleteln()
                     self.__state = 0
                 elif cCh == 'N':
                     # disable local line editing until
@@ -359,11 +393,11 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 0
                 elif cCh == 'O':
                     # insert char
-                    self.__display.InsertChar()
+                    self.InsertChar()
                     self.__state = 0
                 elif cCh == 'P':
                     # delete char
-                    self.__display.DeleteChar()
+                    self.DeleteChar()
                     self.__state = 0
                 elif cCh == 'S':
                     # roll up
@@ -372,7 +406,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 elif cCh == 'T':
                     # roll down
                     self.__state = 0
-                    self.__display.LineDown()
+                    self.__display.cursordown()
                 elif cCh == 'U':
                     # page down
                     log.info("Page down")
@@ -383,12 +417,12 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 0
                 elif cCh == 'W':
                     #  Enter protect mode
-                    self.__display.SetProtectMode()
+                    self.SetProtectMode()
                     self.__keys.SetProtectMode()
                     self.__state = 0
                 elif cCh == 'X':
                     # exit protect mode
-                    self.__display.ExitProtectMode()
+                    self.ExitProtectMode()
                     self.__keys.ExitProtectMode()
                     self.__state = 0
                 elif cCh == '[':
@@ -396,7 +430,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 71
                 elif cCh == ']':
                     # Read with address all
-                    if self.__display.GetProtectMode():
+                    if self.GetProtectMode():
                         # same as ESC =
                         self.__state = 67
                         continue
@@ -411,9 +445,9 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__state = 81
                 elif cCh == 'q':
                     # reinitialize
-                    self.__display.Init()
-                    self.__display.SetProtectMode()
-                    self.__display.ExitProtectMode()
+                    self.Init()
+                    self.SetProtectMode()
+                    self.ExitProtectMode()
                     self.__state = 10000
                 elif cCh == 'r':
                     # Define data type table
@@ -438,19 +472,19 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 elif cCh == 'e':
                     # Get machine name 3-28
                     name = ( 1, '&', 'j', 'o', 'h', 'n', 13 )
-                    self.__telnet.SendRaw( name )
+                    self.__telnet.write( name )
                     self.__state = 0
                 elif cCh == 'V':
                     self.__state = 39
                 elif cCh == 'W':
                     # Report Exec code 3-34
                     code = ( 1, '?', (1<<6) | 1, 'F', 'D', 13 )
-                    # self.__telnet.SendRaw( name )
+                    # self.__telnet.write( name )
                     self.__state = 0
                 elif cCh == 'J':
                     self.__blockBuf = ''
                     self.__blockBuf = self.__display.ReadBufferUnprotect( self.__blockBuf, 0, 0, self.__display.GetNumRows()-1, self.__display.GetNumColumns()-1)
-                    self.__telnet.SendRaw( self.__blockBuf )
+                    self.__telnet.write( self.__blockBuf )
                     self.__state = 0
                 else:
                     log.info( "Unknown ESC - %d" % ( iCh ) )
@@ -502,7 +536,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 # end if
                 if cCh == 'C':
                     # set buffer address extended
-                    self.__display.SetBufferRowCol( int( self.__strStack[ 0 ] ), int( self.__accum ) )
+                    self.SetBufferRowCol( int( self.__strStack[ 0 ] ), int( self.__accum ) )
                     self.__strStack = []
                     self.__accum = ''
                     self.__state = 0
@@ -521,7 +555,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     ec = int( self.__accum[ 1 ] )
                     self.__accum = ''
                     self.__strStack = []
-                    self.__display.ClearBlock( sr, sc, er, ec )
+                    self.ClearBlock( sr, sc, er, ec )
                     self.__state = 0
 
                 elif iCh == 0x00:
@@ -601,7 +635,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 # end if
                 if cCh == 'D':
                     # set cursor position
-                    self.__display.SetCursorRowCol( ord( self.__strStack[ 0 ][ 0 ] ) - 32,
+                    self.__display.cursorpos( ord( self.__strStack[ 0 ][ 0 ] ) - 32,
                                                     ord( self.__strStack[ 1 ][ 0 ] ) - 32 )
                 elif cCh == 'O':
                     # write to AUX
@@ -613,25 +647,25 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 self.__strStack.append( cCh )
                 self.__state = 43
             elif self.__state == 43:
-                self.__display.SetCursorRowCol( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20, iCh - 0x20 )
+                self.__display.cursorpos( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20, iCh - 0x20 )
                 self.__strStack = []
                 self.__state = 0
             elif self.__state == 44:
-                self.__display.SetWriteAttribute( iCh & ~( 1 << 5 ) )
+                self.SetWriteAttribute( iCh & ~( 1 << 5 ) )
                 self.__state = 0
             elif self.__state == 46:
-                self.__display.SetPriorWriteAttribute( iCh & ~( 1 << 5 ) )
+                self.SetPriorWriteAttribute( iCh & ~( 1 << 5 ) )
                 self.__state = 0
             elif self.__state == 48:
-                self.__display.SetDisplayPage( iCh - 0x20 )
+                self.SetDisplayPage( iCh - 0x20 )
                 self.__state = 0
             elif self.__state == 50:
-                fnKey = ( 1, ch, self.__display.GetCursorRow(), self.__display.GetCursorCol(), 13 )
-                self.__telnet.SendRaw( fnKey )
+                fnKey = ( 1, ch, self.__display.Row(), self.__display.Col(), 13 )
+                self.__telnet.write( fnKey )
                 self.__state = 0
             elif self.__state == 52:
                 if iCh == 13:
-                    self.__display.WriteMessage( self.__accum )
+                    self.WriteMessage( self.__accum )
                     self.__accum = ''
                     self.__state = 0
                     continue
@@ -673,7 +707,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 self.__strStack.append( cCh )
                 self.__state = 57
             elif self.__state == 57:
-                self.__display.SetBufferRowCol( ord( self.__strStack[ 0 ][0] ) - 0x20, iCh - 0x20)
+                self.SetBufferRowCol( ord( self.__strStack[ 0 ][0] ) - 0x20, iCh - 0x20)
                 self.__strStack = []
                 self.__state = 0
             elif self.__state == 59:
@@ -681,7 +715,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 self.__state = 60
 
             elif self.__state == 60:
-                self.__display.StartField( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20, iCh - 0x20 )
+                self.StartField( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20, iCh - 0x20 )
                 self.__strStack = []
                 self.__state = 0
 
@@ -698,7 +732,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     self.__strStack = []
                     self.__accum = ''
                     self.__blockBuf = self.__display.ReadBufferAllIgnoreMdt( '', sr, sc, er, ec )
-                    self.__telnet.SendRaw( self.__blockBuf )
+                    self.__telnet.write( self.__blockBuf )
                     self.__blockBuf = ''
                 else:
                     log.info("Unexpected char in 64: %d" % ( iCh ) )
@@ -712,8 +746,8 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     sc = ord( self.__strStack[ 1 ][ 0 ] ) - 0x20
                     er = ord( self.__strStack[ 2 ][ 0 ] ) - 0x20
                     ec = iCh - 0x20
-                    self.__blockBuf = self.__display.ReadBufferAllMdt( '', sr, sc, er, ec )
-                    self.__telnet.SendRaw( self.__blockBuf )
+                    self.__blockBuf = self.ReadBufferAllMdt( '', sr, sc, er, ec )
+                    self.__telnet.write( self.__blockBuf )
                     self.__blockBuf = ''
                     self.__strStack = []
                     self.__state = 0
@@ -729,7 +763,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
             elif self.__state == 73:
                 vidAttr     = ord( self.__strStack[ 0 ][ 0 ] ) - 0x20
                 dataAttr    = ord( self.__strStack[ 1 ][ 0 ] ) - 0x20
-                self.__display.StartField( vidAttr, dataAttr, iCh - 0x20 )
+                self.StartField( vidAttr, dataAttr, iCh - 0x20 )
                 self.__strStack = []
                 self.__state = 0
             elif self.__state == 75:
@@ -751,13 +785,13 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                 sc = ord( self.__strStack[ 1 ][ 0 ] ) - 0x20
                 er = ord( self.__strStack[ 2 ][ 0 ] ) - 0x20
                 ec = iCh - 0x20
-                self.__blockBuf = self.__display.ReadFieldsAll( '', sr, sc, er, ec )
-                self.__telnet.SendRaw( self.__blockBuf )
+                self.__blockBuf = self.ReadFieldsAll( '', sr, sc, er, ec )
+                self.__telnet.write( self.__blockBuf )
                 m_blockBuf = ''
                 self.__strStack = []
                 self.__state = 0
             elif self.__state == 81:
-                self.__display.SetPageCount( chr( iCh - 0x30 ) )
+                self.SetPageCount( chr( iCh - 0x30 ) )
                 self.__state = 10000
             elif self.__state == 82:
                 self.__strStack.append( chr( iCh - 0x20 ) )
@@ -807,13 +841,13 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
                     log.info( "ANSI MODE" )
                 elif cCh == 'B':
                     # BLOCK mode
-                    self.__display.SetModeBlock()
+                    self.SetModeBlock()
                     self.__keys.SetKeySet( KEYS_BLOCK )
                     #telnet.setBufferingOn()
                     log.info( "BLOCK MODE" )
                 elif cCh == 'C':
                     # Conversational mode
-                    self.__display.SetModeConv()
+                    self.SetModeConv()
                     self.__keys.SetKeySet( KEYS_CONV )
                     #telnet.setBufferingOff()
                     log.info( "CONVERSATIONAL MODE" )
@@ -842,7 +876,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
             elif self.__state == 15000:
                 # ESC I (Clear Block)
                 if len( self.__strStack ) == 3:
-                    self.__display.ClearBlock( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20,
+                    self.ClearBlock( ord( self.__strStack[ 0 ][ 0 ] ) - 0x20,
                                                ord( self.__strStack[ 1 ][ 0 ] ) - 0x20,
                                                ord( self.__strStack[ 2 ][ 0 ] ) - 0x20, iCh - 0x20 )
                     self.__strStack = []
@@ -855,18 +889,32 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
             # end if
         # end while
         if len( self.__accum ) > 0:
-            if self.__display.GetProtectMode():
-                self.__display.WriteBuffer( self.__accum )
+            if self.GetProtectMode():
+                self.WriteBuffer( self.__accum )
             else:
-                self.__display.WriteDisplay( self.__accum )
+                self.__display.Print( self.__accum )
             # end if
             self.__accum = ''
         # end if
         return
     # end def
 
-    def BeforeTransmit( self, buffer ):
-        return buffer.replace( '\n', '\r\n' )
+    def HandleKeyboard( self ):
+        return CursesDisplay.HandleKeyboard( self )
+    # end def
+
+    def Transmit( self, key ):
+        CursesDisplay.Transmit( self, key )
+        if key == curses.KEY_UP:
+            self.__telnet.write( TN6530_8_CUR_UP )
+        elif key == curses.KEY_DOWN:
+            self.__telnet.write( TN6530_8_CUR_DOWN )
+        elif key == curses.KEY_LEFT:
+            self.__telnet.write( TN6530_8_CUR_LEFT )
+        elif key == curses.KEY_RIGHT:
+            self.__telnet.write( TN6530_8_CUR_RIGHT )
+        # end if
+        return
     # end def
 
     """
@@ -896,7 +944,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
 
     def DispatchResetLine( self ):
         for listener in self.__listeners:
-            listener.Vt6530_OnResetLine()
+            listener.OnResetLine()
         # next
         return
     # end def
@@ -909,7 +957,7 @@ class VT6530( telnetlib.emulation.TerminalEmulation, telnetlib.emulation.MappedK
     """
     def DispatchEnquire( self ):
         for listener in self.__listeners:
-            listener.Vt6530_OnEnquire()
+            listener.OnEnquire()
         # next
         return
     # end def

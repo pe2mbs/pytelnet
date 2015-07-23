@@ -150,6 +150,7 @@ def TelnetConsole():
         log.setLevel( debuglevel )
     # end if
     log.info( "=-=" * 30 )
+    mainscr = curses.initscr()
     if sslTunnel:
         tn = telnetlib.sslclient.Telnet()
     else:
@@ -161,6 +162,8 @@ def TelnetConsole():
     if terminal is not None:
         tn.Terminal = terminal
         tn.setTerminal( terminal )
+    else:
+        tn.Terminal = 'vt100'
     # end if
     try:
         tn.open( host, port, timeout = timeout )
@@ -170,13 +173,7 @@ def TelnetConsole():
     # end def
     try:
         #tn.interact()
-        stdscr = curses.initscr()
-        curses.cbreak()
-        curses.noecho()
-        curses.start_color()
-        stdscr.nodelay( True )
-        stdscr.keypad( 1 )
-        tn.curses_interact( stdscr )
+        tn.curses_interact( mainscr )
     except KeyboardInterrupt, exc:
         pass
     except telnetlib.client.TelnetConnectionClosed, exc:

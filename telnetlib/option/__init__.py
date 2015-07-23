@@ -83,6 +83,11 @@ OPTION_DICT = { BINARY:             "8-bit data path",
                 PRAGMA_HEARTBEAT:   "TELOPT PRAGMA HEARTBEAT",
                 EXOPL:              "Extended-Options-List" }
 
+OPTION_IS       = chr( 0 )
+OPTION_SEND     = chr( 1 )
+OPTION_REPLY    = chr( 2 )
+OPTION_NAME     = chr( 3 )
+
 def Option2String( val ):
     try:
         return OPTION_DICT[ val ]

@@ -43,8 +43,9 @@ class Win32readHostThread( threading.Thread ):
     """
         Helper class for win32_interact() -- this thread handles the host handling.
     """
-    def __init__( self, telnet ):
+    def __init__( self, telnet, emulation = None ):
         self.telnet     = telnet
+        self.emulation  = emulation
         threading.Thread.__init__( self, target = self.run )
         return
     # end def
@@ -58,10 +59,16 @@ class Win32readHostThread( threading.Thread ):
                 logging.getLogger().info( '*** Connection closed by remote host ***' )
                 break
             # end try
-            if data:
-                sys.stdout.write( data )
+            if self.emulation is None:
+                if data:
+                    sys.stdout.write( data )
+                else:
+                    sys.stdout.flush()
+                # end if
             else:
-                sys.stdout.flush()
+                if data:
+                    self.emulation.OnTelnetRecv( data )
+                # end if
             # end if
         # end while
         self.telnet.quit()

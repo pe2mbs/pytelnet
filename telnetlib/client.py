@@ -30,17 +30,13 @@ import socket
 import select
 import logging
 import curses
-from telnetlib.emulation.vt100 import VT100, VTxterm
-
 from telnetlib import *
-from telnetlib.option.authentication import TelnetOptionAuthentication
-from telnetlib.option.localecho import TelnetOptionLocalEcho
-from telnetlib.option import IAC_Option
-from telnetlib.win32 import Win32stdioThread, Win32readHostThread
-# from telnetlib.emulation.vt6530 import VT6530
-from telnetlib.emulation.terminals import *
-
-
+from telnetlib.option.authentication    import TelnetOptionAuthentication
+from telnetlib.option.localecho         import TelnetOptionLocalEcho
+from telnetlib.option.terminaltype      import TelnetOptionTerminalType
+from telnetlib.option                   import IAC_Option
+from telnetlib.win32                    import Win32stdioThread, Win32readHostThread
+from telnetlib.emulation.terminals      import getTerminalObject
 
 __all__ = [ "Telnet" ]
 """
@@ -133,8 +129,8 @@ class Telnet( object ):
 
     """
 
-    def __init__(self, host = None, port = 23,
-                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT, terminal = "vt200"):
+    def __init__( self, host = None, port = 23,
+                 timeout = socket._GLOBAL_DEFAULT_TIMEOUT, terminal = "vt100" ):
         """Constructor.
 
         When called without arguments, create an unconnected instance.
@@ -160,10 +156,9 @@ class Telnet( object ):
         self.__terminal                 = None
         self.__terminalObj              = None
         self.__options                  = [ None ] * 256
-        self.__options[ ord( ECHO ) ]   = TelnetOptionLocalEcho()
-        self.__options[ ord( AUTHENTICATION ) ] = TelnetOptionAuthentication()
-        # self.__options[ ord( TTYPE ) ] = TelnetOptionTerminalType()
-        Terminal                        = terminal
+        self.Option( ECHO,              TelnetOptionLocalEcho() )
+        self.Option( AUTHENTICATION,    TelnetOptionAuthentication() )
+        #self.Option( TTYPE,             TelnetOptionTerminalType() )
         if host is not None:
             self.open( host, port, timeout )
         # end if
@@ -207,24 +202,38 @@ class Telnet( object ):
     # end def
 
     def getTerminal( self ):
+        obj = self.__options[ ord( TTYPE ) ]
+        if obj is not None:
+            return obj.Terminal
+        # end if
         return self.__terminal
     # end def
 
     def setTerminal( self, terminal ):
         log.info( "Set TERMINAL = %s" % ( terminal ) )
-        self.__terminal     = terminal
-        self.__terminalObj  = getTerminalObject( terminal, self, display = None, keys = None )
+        obj = self.getOption( TTYPE )
+        if obj is not None:
+            obj.Terminal = terminal
+        else:
+            self.__terminal = terminal
+        # end if
         return
     # end def
 
     Terminal = property( getTerminal, setTerminal )
 
     def Option( self, option, Object ):
+        if type( option ) is str:
+            option = ord( option )
+        # end if
         self.__options[ option ] = Object
         return
     # end def
 
     def getOption( self, option ):
+        if type( option ) is str:
+            option = ord( option )
+        # end if
         return self.__options[ option ]
     # end def
 
@@ -306,6 +315,9 @@ class Telnet( object ):
             Can block if the connection is blocked.  May raise
             socket.error if the connection is closed.
         """
+        if type(buffer) is tuple:
+            buffer = "".join( [ chr( x ) if type( x ) is int else x for x in buffer ] )
+        # end if
         if self.__terminalObj is not None:
             buffer = self.__terminalObj.BeforeTransmit( buffer )
         # end if
@@ -698,24 +710,49 @@ class Telnet( object ):
     # end def
 
     def curses_interact( self, screen ):
-        emulation = VT100( self, screen )
+        self.__terminalObj  = getTerminalObject( self.Terminal,
+                                                 telnet = self,
+                                                 display = screen,
+                                                 keys = None )
+        curses.cbreak()
+        curses.noecho()
+        curses.start_color()
+        screen.nodelay( True )
+        screen.keypad( 1 )
+        screen.scrollok( True )
+        self.console    = None
+        self.reader     = None # Win32readHostThread( self, emulation )
+        if self.reader is not None:
+            self.reader.start()
+        # end if
+        self.__terminalObj.OnConnect()
         while 1:
-            emulation.HandleKeyboard()
-            rfd, wfd, xfd = select.select( [ self ], [], [], 0 )
-            if self in rfd:
-                try:
-                    text = self.read_eager()
-                except EOFError:
-                    print '*** Connection closed by remote host ***'
-                    log.info( '*** Connection closed by remote host ***' )
-                    break
-                # end try
-                if text:
-                    # log.info( "write #1 text in interact" )
-                    emulation.OnTelnetRecv( text )
+            if self.reader is None:
+                rfd, wfd, xfd = select.select( [ self ], [], [], 0 )
+                if self in rfd:
+                    try:
+                        text = self.read_eager()
+                    except EOFError:
+                        print '*** Connection closed by remote host ***'
+                        log.info( '*** Connection closed by remote host ***' )
+                        break
+                    # end try
+                    if text:
+                        # log.info( "write #1 text in interact" )
+                        self.__terminalObj.OnReceive( text )
+                    # end if
+                else:
+                    self.__terminalObj.HandleKeyboard()
                 # end if
+            else:
+                self.__terminalObj.HandleKeyboard()
             # end if
         # end def
+        self.__terminalObj.OnClose()
+        if self.reader is not None and self.reader.is_alive():
+            self.reader.quit()
+            self.reader.join()
+        # end if
         return
     # end def
 
@@ -757,10 +794,10 @@ class Telnet( object ):
     # end def
 
     def quit( self ):
-        if self.reader.is_alive():
+        if self.reader is not None and self.reader.is_alive():
             self.reader.quit()
         # end if
-        if self.console.is_alive():
+        if self.console is not None and self.console.is_alive():
             self.console.quit()
         # end if
         return
